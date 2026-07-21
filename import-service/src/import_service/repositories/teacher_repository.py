@@ -8,6 +8,14 @@ class TeacherRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def get_all(self) -> list[Teacher]:
+         return list(self.session.scalars(select(Teacher)).all())
+
+    def get_by_id(self, teacher_id: int) -> Teacher | None:
+        return self.session.scalars(
+            select(Teacher).where(Teacher.id == teacher_id)
+        ).first()
+
     def get_full_by_id(self, teacher_id: int) -> Teacher | None:
         return self.session.scalars(
             select(Teacher)
@@ -15,30 +23,20 @@ class TeacherRepository:
             .where(Teacher.id == teacher_id)
         ).unique().first()
 
-    def get_all(self) -> list[Teacher]:
-        return list(self.session.scalars(select(Teacher)).all())
-
-    def get_by_id(self, teacher_id: int) -> Teacher | None:
-        return self.session.scalars(
-            select(Teacher).where(Teacher.id == teacher_id)
-        ).first()
-
-    def create(self, teacher: Teacher) -> Teacher:
+    def save(self, teacher: Teacher) -> Teacher:
         self.session.add(teacher)
         self.session.commit()
         self.session.refresh(teacher)
         return teacher
 
-    def bulk_create(self, teachers: list[Teacher]) -> None:
+    def bulk_save(self, teachers: list[Teacher]) -> None:
         self.session.add_all(teachers)
         self.session.commit()
 
-    def update(self, teacher_id: int, **fields) -> Teacher | None:  # todo dto for update
+    def delete(self, teacher_id: int) -> bool:
         teacher = self.get_by_id(teacher_id)
         if teacher is None:
-            return None
-        for key, value in fields.items():
-            setattr(teacher, key, value)
+            return False
+        self.session.delete(teacher)
         self.session.commit()
-        self.session.refresh(teacher)
-        return teacher
+        return True

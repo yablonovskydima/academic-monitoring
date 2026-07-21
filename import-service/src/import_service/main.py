@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
-from import_service.controllers import students
+from import_service.controllers import (
+    students, groups, teachers, semesters, subjects,
+    subject_offerings, class_sessions,
+)
 from import_service.database import init_db
 
 @asynccontextmanager
@@ -12,6 +15,12 @@ async def lifespan(app: FastAPI):
     yield
 app = FastAPI(title="Import Service", lifespan=lifespan)
 app.include_router(students.router)
+app.include_router(groups.router)
+app.include_router(teachers.router)
+app.include_router(semesters.router)
+app.include_router(subjects.router)
+app.include_router(subject_offerings.router)
+app.include_router(class_sessions.router)
 
 @app.get("/health")
 def health():

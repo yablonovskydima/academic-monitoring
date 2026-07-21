@@ -8,6 +8,14 @@ class GroupRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def get_all(self) -> list[Group]:
+         return list(self.session.scalars(select(Group)).all())
+
+    def get_by_id(self, group_id: int) -> Group | None:
+        return self.session.scalars(
+            select(Group).where(Group.id == group_id)
+        ).first()
+
     def get_full_by_id(self, group_id: int) -> Group | None:
         return self.session.scalars(
             select(Group)
@@ -15,30 +23,20 @@ class GroupRepository:
             .where(Group.id == group_id)
         ).unique().first()
 
-    def get_all(self) -> list[Group]:
-        return list(self.session.scalars(select(Group)).all())
-
-    def get_by_id(self, group_id: int) -> Group | None:
-        return self.session.scalars(
-            select(Group).where(Group.id == group_id)
-        ).first()
-
-    def create(self, group: Group) -> Group:
+    def save(self, group: Group) -> Group:
         self.session.add(group)
         self.session.commit()
         self.session.refresh(group)
         return group
 
-    def bulk_create(self, groups: list[Group]) -> None:
+    def bulk_save(self, groups: list[Group]) -> None:
         self.session.add_all(groups)
         self.session.commit()
 
-    def update(self, group_id: int, **fields) -> Group | None:  # todo dto for update
+    def delete(self, group_id: int) -> bool:
         group = self.get_by_id(group_id)
         if group is None:
-            return None
-        for key, value in fields.items():
-            setattr(group, key, value)
+            return False
+        self.session.delete(group)
         self.session.commit()
-        self.session.refresh(group)
-        return group
+        return True

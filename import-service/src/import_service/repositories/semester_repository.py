@@ -11,7 +11,7 @@ class SemesterRepository:
         self.session = session
 
     def get_all(self) -> list[Semester]:
-        return list(self.session.scalars(select(Semester)).all())
+         return list(self.session.scalars(select(Semester)).all())
 
     def get_by_id(self, semester_id: int) -> Semester | None:
         return self.session.scalars(
@@ -26,22 +26,20 @@ class SemesterRepository:
             )
         ).first()
 
-    def create(self, semester: Semester) -> Semester:
+    def save(self, semester: Semester) -> Semester:
         self.session.add(semester)
         self.session.commit()
         self.session.refresh(semester)
         return semester
 
-    def bulk_create(self, semesters: list[Semester]) -> None:
+    def bulk_save(self, semesters: list[Semester]) -> None:
         self.session.add_all(semesters)
         self.session.commit()
 
-    def update(self, semester_id: int, **fields) -> Semester | None:  # todo dto for update
+    def delete(self, semester_id: int) -> bool:
         semester = self.get_by_id(semester_id)
         if semester is None:
-            return None
-        for key, value in fields.items():
-            setattr(semester, key, value)
+            return False
+        self.session.delete(semester)
         self.session.commit()
-        self.session.refresh(semester)
-        return semester
+        return True

@@ -8,9 +8,6 @@ class EnrollmentRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def get_all(self) -> list[Enrollment]:
-        return list(self.session.scalars(select(Enrollment)).all())
-
     def get_by_id(self, enrollment_id: int) -> Enrollment | None:
         return self.session.scalars(
             select(Enrollment).where(Enrollment.id == enrollment_id)
@@ -26,22 +23,20 @@ class EnrollmentRepository:
             select(Enrollment).where(Enrollment.subject_offering_id == subject_offering_id)
         ).all())
 
-    def create(self, enrollment: Enrollment) -> Enrollment:
+    def save(self, enrollment: Enrollment) -> Enrollment:
         self.session.add(enrollment)
         self.session.commit()
         self.session.refresh(enrollment)
         return enrollment
 
-    def bulk_create(self, enrollments: list[Enrollment]) -> None:
+    def bulk_save(self, enrollments: list[Enrollment]) -> None:
         self.session.add_all(enrollments)
         self.session.commit()
 
-    def update(self, enrollment_id: int, **fields) -> Enrollment | None:  # todo dto for update
+    def delete(self, enrollment_id: int) -> bool:
         enrollment = self.get_by_id(enrollment_id)
         if enrollment is None:
-            return None
-        for key, value in fields.items():
-            setattr(enrollment, key, value)
+            return False
+        self.session.delete(enrollment)
         self.session.commit()
-        self.session.refresh(enrollment)
-        return enrollment
+        return True

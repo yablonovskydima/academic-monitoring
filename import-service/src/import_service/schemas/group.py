@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-class GroupOutput(BaseModel):
+class GroupOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -30,5 +30,5 @@ class GroupStudentShort(BaseModel):
     email: str
 
 
-class GroupFull(BaseModel):
-    students: list[StudentShort] = []
+class GroupFull(GroupOut):
+    students: list[GroupStudentShort] = []
