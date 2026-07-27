@@ -22,9 +22,9 @@ class EnrollmentService:
         enrollment = Enrollment(**data.model_dump())
         return self.repo.save(enrollment)
 
-    def bulk_create(self, items_data: list[EnrollmentCreate]) -> None:
+    def bulk_create(self, items_data: list[EnrollmentCreate]) -> list[Enrollment]:
         enrollments = [Enrollment(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(enrollments)
+        return self.repo.bulk_save(enrollments)
 
     def update(self, enrollment_id: int, data: EnrollmentUpdate) -> Enrollment | None:
         enrollment = self.repo.get_by_id(enrollment_id)

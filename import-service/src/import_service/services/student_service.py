@@ -25,9 +25,9 @@ class StudentService:
         student = Student(**data.model_dump())
         return self.repo.save(student)
 
-    def bulk_create(self, items_data: list[StudentCreate]) -> None:
+    def bulk_create(self, items_data: list[StudentCreate]) -> list[Student]:
         students = [Student(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(students)
+        return self.repo.bulk_save(students)
 
     def update(self, student_id: int, data: StudentUpdate) -> Student | None:
         student = self.repo.get_by_id(student_id)

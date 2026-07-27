@@ -29,9 +29,11 @@ class TeacherRepository:
         self.session.refresh(teacher)
         return teacher
 
-    def bulk_save(self, teachers: list[Teacher]) -> None:
+    def bulk_save(self, teachers: list[Teacher]) -> list[Teacher]:
         self.session.add_all(teachers)
+        self.session.flush()
         self.session.commit()
+        return teachers
 
     def delete(self, teacher_id: int) -> bool:
         teacher = self.get_by_id(teacher_id)

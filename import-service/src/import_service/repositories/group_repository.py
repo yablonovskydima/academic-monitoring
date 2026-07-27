@@ -29,9 +29,11 @@ class GroupRepository:
         self.session.refresh(group)
         return group
 
-    def bulk_save(self, groups: list[Group]) -> None:
+    def bulk_save(self, groups: list[Group]) -> list[Group]:
         self.session.add_all(groups)
+        self.session.flush()
         self.session.commit()
+        return groups
 
     def delete(self, group_id: int) -> bool:
         group = self.get_by_id(group_id)

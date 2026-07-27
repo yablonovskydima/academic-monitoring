@@ -22,9 +22,9 @@ class TeacherService:
         teacher = Teacher(**data.model_dump())
         return self.repo.save(teacher)
 
-    def bulk_create(self, items_data: list[TeacherCreate]) -> None:
+    def bulk_create(self, items_data: list[TeacherCreate]) -> list[Teacher]:
         teachers = [Teacher(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(teachers)
+        return self.repo.bulk_save(teachers)
 
     def update(self, teacher_id: int, data: TeacherUpdate) -> Teacher | None:
         teacher = self.repo.get_by_id(teacher_id)

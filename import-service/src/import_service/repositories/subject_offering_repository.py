@@ -37,9 +37,11 @@ class SubjectOfferingRepository:
         self.session.refresh(offering)
         return offering
 
-    def bulk_save(self, offerings: list[SubjectOffering]) -> None:
+    def bulk_save(self, offerings: list[SubjectOffering]) -> list[SubjectOffering]:
         self.session.add_all(offerings)
+        self.session.flush()
         self.session.commit()
+        return offerings
 
     def delete(self, offering_id: int) -> bool:
         offering = self.get_by_id(offering_id)

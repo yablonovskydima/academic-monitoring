@@ -38,9 +38,11 @@ class StudentRepository:
         self.session.refresh(student)
         return student
 
-    def bulk_save(self, students: list[Student]) -> None:
+    def bulk_save(self, students: list[Student]) -> list[Student]:
         self.session.add_all(students)
+        self.session.flush()
         self.session.commit()
+        return students
 
     def delete(self, student_id: int) -> bool:
         student = self.get_by_id(student_id)
@@ -49,5 +51,3 @@ class StudentRepository:
         self.session.delete(student)
         self.session.commit()
         return True
-
-    #TODO зробити такі ж репо для всього

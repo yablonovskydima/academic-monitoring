@@ -22,9 +22,9 @@ class GroupService:
         group = Group(**data.model_dump())
         return self.repo.save(group)
 
-    def bulk_create(self, items_data: list[GroupCreate]) -> None:
+    def bulk_create(self, items_data: list[GroupCreate]) -> list[Group]:
         groups = [Group(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(groups)
+        return self.repo.bulk_save(groups)
 
     def update(self, group_id: int, data: GroupUpdate) -> Group | None:
         group = self.repo.get_by_id(group_id)

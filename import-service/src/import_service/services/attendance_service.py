@@ -22,9 +22,9 @@ class AttendanceService:
         attendance = Attendance(**data.model_dump())
         return self.repo.save(attendance)
 
-    def bulk_create(self, items_data: list[AttendanceCreate]) -> None:
+    def bulk_create(self, items_data: list[AttendanceCreate]) -> list[Attendance]:
         attendances = [Attendance(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(attendances)
+        return self.repo.bulk_save(attendances)
 
     def update(self, attendance_id: int, data: AttendanceUpdate) -> Attendance | None:
         attendance = self.repo.get_by_id(attendance_id)

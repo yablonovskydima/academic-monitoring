@@ -22,9 +22,11 @@ class SubjectRepository:
         self.session.refresh(subject)
         return subject
 
-    def bulk_save(self, subjects: list[Subject]) -> None:
+    def bulk_save(self, subjects: list[Subject]) -> list[Subject]:
         self.session.add_all(subjects)
+        self.session.flush()
         self.session.commit()
+        return subjects
 
     def delete(self, subject_id: int) -> bool:
         subject = self.get_by_id(subject_id)

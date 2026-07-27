@@ -22,9 +22,9 @@ class ClassSessionService:
         class_session = ClassSession(**data.model_dump())
         return self.repo.save(class_session)
 
-    def bulk_create(self, items_data: list[ClassSessionCreate]) -> None:
+    def bulk_create(self, items_data: list[ClassSessionCreate]) -> list[ClassSession]:
         class_sessions = [ClassSession(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(class_sessions)
+        return self.repo.bulk_save(class_sessions)
 
     def update(self, session_id: int, data: ClassSessionUpdate) -> ClassSession | None:
         class_session = self.repo.get_by_id(session_id)

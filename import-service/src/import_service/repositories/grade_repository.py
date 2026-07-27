@@ -29,9 +29,11 @@ class GradeRepository:
         self.session.refresh(grade)
         return grade
 
-    def bulk_save(self, grades: list[Grade]) -> None:
+    def bulk_save(self, grades: list[Grade]) -> list[Grade]:
         self.session.add_all(grades)
+        self.session.flush()
         self.session.commit()
+        return grades
 
     def delete(self, grade_id: int) -> bool:
         grade = self.get_by_id(grade_id)

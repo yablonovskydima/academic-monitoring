@@ -22,9 +22,9 @@ class SemesterService:
         semester = Semester(**data.model_dump())
         return self.repo.save(semester)
 
-    def bulk_create(self, items_data: list[SemesterCreate]) -> None:
+    def bulk_create(self, items_data: list[SemesterCreate]) -> list[Semester]:
         semesters = [Semester(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(semesters)
+        return self.repo.bulk_save(semesters)
 
     def update(self, semester_id: int, data: SemesterUpdate) -> Semester | None:
         semester = self.repo.get_by_id(semester_id)

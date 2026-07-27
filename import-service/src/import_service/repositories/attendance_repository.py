@@ -29,9 +29,11 @@ class AttendanceRepository:
         self.session.refresh(attendance)
         return attendance
 
-    def bulk_save(self, attendances: list[Attendance]) -> None:
+    def bulk_save(self, attendances: list[Attendance]) -> list[Attendance]:
         self.session.add_all(attendances)
+        self.session.flush()
         self.session.commit()
+        return attendances
 
     def delete(self, attendance_id: int) -> bool:
         attendance = self.get_by_id(attendance_id)

@@ -22,9 +22,9 @@ class GradeService:
         grade = Grade(**data.model_dump())
         return self.repo.save(grade)
 
-    def bulk_create(self, items_data: list[GradeCreate]) -> None:
+    def bulk_create(self, items_data: list[GradeCreate]) -> list[Grade]:
         grades = [Grade(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(grades)
+        return self.repo.bulk_save(grades)
 
     def update(self, grade_id: int, data: GradeUpdate) -> Grade | None:
         grade = self.repo.get_by_id(grade_id)

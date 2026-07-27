@@ -25,9 +25,9 @@ class SubjectOfferingService:
         offering = SubjectOffering(**data.model_dump())
         return self.repo.save(offering)
 
-    def bulk_create(self, items_data: list[SubjectOfferingCreate]) -> None:
+    def bulk_create(self, items_data: list[SubjectOfferingCreate]) -> list[SubjectOffering]:
         offerings = [SubjectOffering(**data.model_dump()) for data in items_data]
-        self.repo.bulk_save(offerings)
+        return self.repo.bulk_save(offerings)
 
     def update(self, offering_id: int, data: SubjectOfferingUpdate) -> SubjectOffering | None:
         offering = self.repo.get_by_id(offering_id)

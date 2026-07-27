@@ -32,9 +32,11 @@ class SemesterRepository:
         self.session.refresh(semester)
         return semester
 
-    def bulk_save(self, semesters: list[Semester]) -> None:
+    def bulk_save(self, semesters: list[Semester]) -> list[Semester]:
         self.session.add_all(semesters)
+        self.session.flush()
         self.session.commit()
+        return semesters
 
     def delete(self, semester_id: int) -> bool:
         semester = self.get_by_id(semester_id)

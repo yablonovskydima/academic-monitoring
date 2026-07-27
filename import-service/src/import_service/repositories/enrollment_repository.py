@@ -29,9 +29,11 @@ class EnrollmentRepository:
         self.session.refresh(enrollment)
         return enrollment
 
-    def bulk_save(self, enrollments: list[Enrollment]) -> None:
+    def bulk_save(self, enrollments: list[Enrollment]) -> list[Enrollment]:
         self.session.add_all(enrollments)
+        self.session.flush()
         self.session.commit()
+        return enrollments
 
     def delete(self, enrollment_id: int) -> bool:
         enrollment = self.get_by_id(enrollment_id)
