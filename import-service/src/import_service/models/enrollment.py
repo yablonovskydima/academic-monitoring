@@ -13,8 +13,8 @@ class Enrollment(Base):
     __tablename__ = "enrollments"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"))
-    subject_offering_id: Mapped[int] = mapped_column(ForeignKey("subject_offerings.id"))
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
+    subject_offering_id: Mapped[int] = mapped_column(ForeignKey("subject_offerings.id"), index=True)
     enrolled_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     student: Mapped["Student"] = relationship(back_populates="enrollments")

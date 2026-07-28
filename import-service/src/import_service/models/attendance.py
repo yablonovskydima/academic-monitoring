@@ -13,8 +13,8 @@ class Attendance(Base):
     __tablename__ = "attendance"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"))
-    class_session_id: Mapped[int] = mapped_column(ForeignKey("class_sessions.id"))
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
+    class_session_id: Mapped[int] = mapped_column(ForeignKey("class_sessions.id"), index=True)
     is_absent: Mapped[bool] = mapped_column(Boolean, default=False)
     is_worked_off: Mapped[bool] = mapped_column(Boolean, default=False)
     is_excused: Mapped[bool] = mapped_column(Boolean, default=False)

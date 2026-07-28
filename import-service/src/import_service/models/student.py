@@ -26,7 +26,7 @@ class Student(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     full_name: Mapped[str] = mapped_column(String(200))
-    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"))
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
     email: Mapped[str] = mapped_column(String(200), unique=True)
     study_mode: Mapped[StudyMode] = mapped_column(SAEnum(StudyMode, name="study_mode_enum"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

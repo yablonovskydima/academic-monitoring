@@ -15,8 +15,8 @@ class Grade(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"))
-    class_session_id: Mapped[int] = mapped_column(ForeignKey("class_sessions.id"))
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
+    class_session_id: Mapped[int] = mapped_column(ForeignKey("class_sessions.id"), index=True)
     score: Mapped[float] = mapped_column(Numeric(5, 2))
     deadline_at: Mapped[datetime | None] = mapped_column(nullable=True)
     graded_at: Mapped[datetime | None] = mapped_column(nullable=True)

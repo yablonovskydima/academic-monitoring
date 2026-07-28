@@ -24,7 +24,7 @@ class ClassSession(Base):
     __tablename__ = "class_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    subject_offering_id: Mapped[int] = mapped_column(ForeignKey("subject_offerings.id"))
+    subject_offering_id: Mapped[int] = mapped_column(ForeignKey("subject_offerings.id"), index=True)
     session_type: Mapped[SessionType] = mapped_column(SAEnum(SessionType, name="session_type_enum"))
     session_number: Mapped[int] = mapped_column(Integer)
     date: Mapped[date_type] = mapped_column(Date)
