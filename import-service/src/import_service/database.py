@@ -19,7 +19,7 @@ if not all([DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]):
 
 DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False, executemany_mode="values_plus_batch", insertmanyvalues_page_size=5000)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

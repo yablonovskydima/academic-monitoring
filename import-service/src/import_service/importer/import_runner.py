@@ -30,7 +30,7 @@ from import_service.services.subject_offering_service import SubjectOfferingServ
 from import_service.services.subject_service import SubjectService
 from import_service.services.teacher_service import TeacherService
 
-CHUNK_SIZE = 2000
+CHUNK_SIZE = 10000
 
 def _build_id_map(rows: list[dict], created: list) -> dict[int, int]:
     return {int(row["id"]): obj.id for row, obj in zip(rows, created)}
