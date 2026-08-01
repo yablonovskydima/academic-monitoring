@@ -10,4 +10,5 @@ dependencies = [
 [tool.uv.workspace]
 members = [
     "import-service",
+    "ml-service",
 ]
