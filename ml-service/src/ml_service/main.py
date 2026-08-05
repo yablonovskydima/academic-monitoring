@@ -1,9 +1,17 @@
+from contextlib import asynccontextmanager
 import uvicorn
-
-
 from fastapi import FastAPI
+from ml_service.controllers import health
+from ml_service.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 app = FastAPI(title="ML Service")
+app.include_router(health.router)
 
 @app.get("/health")
 def health():
