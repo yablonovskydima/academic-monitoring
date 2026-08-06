@@ -8,17 +8,51 @@ from ml_service.schemas.student_semester_features import StudentSemesterFeatures
 _features_adapter = TypeAdapter(list[StudentFeaturesRaw])
 _semester_features_adapter = TypeAdapter(list[StudentSemesterFeatures])
 
+PAGE_SIZE = 1000
+
 
 class ImportServiceClient:
     def __init__(self, base_url: str | None = None):
         self.base_url = base_url or IMPORT_SERVICE_URL
 
-    def get_current_features(self) -> list[StudentFeaturesRaw]:
-        response = httpx.get(f"{self.base_url}/student-features/", timeout=30.0)
-        response.raise_for_status()
-        return _features_adapter.validate_json(response.content)
+    def get_current_features(self, page_size: int = PAGE_SIZE) -> list[StudentFeaturesRaw]:
+        all_features: list[StudentFeaturesRaw] = []
+        offset = 0
 
-    def get_semester_features(self) -> list[StudentSemesterFeatures]:
-        response = httpx.get(f"{self.base_url}/student-features/by-semester", timeout=60.0)
-        response.raise_for_status()
-        return _semester_features_adapter.validate_json(response.content)
+        while True:
+            response = httpx.get(
+                f"{self.base_url}/student-features/",
+                params={"limit": page_size, "offset": offset},
+                timeout=30.0,
+            )
+            response.raise_for_status()
+
+            page = _features_adapter.validate_json(response.content)
+            if not page:
+                break
+
+            all_features.extend(page)
+            offset += page_size
+
+        return all_features
+
+    def get_semester_features(self, page_size: int = PAGE_SIZE) -> list[StudentSemesterFeatures]:
+        all_features: list[StudentSemesterFeatures] = []
+        offset = 0
+
+        while True:
+            response = httpx.get(
+                f"{self.base_url}/student-features/by-semester",
+                params={"limit": page_size, "offset": offset},
+                timeout=60.0,
+            )
+            response.raise_for_status()
+
+            page = _semester_features_adapter.validate_json(response.content)
+            if not page:
+                break
+
+            all_features.extend(page)
+            offset += page_size
+
+        return all_features
