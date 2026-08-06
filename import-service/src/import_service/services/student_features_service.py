@@ -11,17 +11,23 @@ class StudentFeaturesService:
     def __init__(self, db: Session):
         self.repo = StudentFeaturesRepository(db)
 
-    def get_all_features(self) -> list[StudentFeaturesRaw]:
-        base_info = {row["student_id"]: row for row in self.repo.get_base_info()}
-        grade_stats = {row["student_id"]: row for row in self.repo.get_grade_stats()}
-        late_submissions = {row["student_id"]: row for row in self.repo.get_late_submissions()}
-        attendance = {row["student_id"]: row for row in self.repo.get_attendance_stats()}
-        lecture_attendance = {row["student_id"]: row for row in self.repo.get_attendance_by_session_type(SessionType.lecture)}
-        lab_attendance = {row["student_id"]: row for row in self.repo.get_attendance_by_session_type(SessionType.lab)}
-        expected_sessions = {row["student_id"]: row for row in self.repo.get_expected_gradable_sessions()}
-        graded_sessions = {row["student_id"]: row for row in self.repo.get_graded_sessions_count()}
+    def get_all_features(self, limit: int = 1000, offset: int = 0) -> list[StudentFeaturesRaw]:
+        student_ids = self.repo.get_student_ids_page(limit=limit, offset=offset)
+        if not student_ids:
+            return []
 
-        trend_rows = self.repo.get_grade_trend()
+        base_info = {row["student_id"]: row for row in self.repo.get_base_info(student_ids)}
+        grade_stats = {row["student_id"]: row for row in self.repo.get_grade_stats(student_ids)}
+        late_submissions = {row["student_id"]: row for row in self.repo.get_late_submissions(student_ids)}
+        attendance = {row["student_id"]: row for row in self.repo.get_attendance_stats(student_ids)}
+        lecture_attendance = {row["student_id"]: row for row in
+                              self.repo.get_attendance_by_session_type(student_ids, SessionType.lecture)}
+        lab_attendance = {row["student_id"]: row for row in
+                          self.repo.get_attendance_by_session_type(student_ids, SessionType.lab)}
+        expected_sessions = {row["student_id"]: row for row in self.repo.get_expected_gradable_sessions(student_ids)}
+        graded_sessions = {row["student_id"]: row for row in self.repo.get_graded_sessions_count(student_ids)}
+
+        trend_rows = self.repo.get_grade_trend(student_ids)
         trend_by_student: dict[int, list[SemesterAvgGrade]] = defaultdict(list)
         for row in trend_rows:
             trend_by_student[row["student_id"]].append(
@@ -34,7 +40,11 @@ class StudentFeaturesService:
             )
 
         result = []
-        for student_id, info in base_info.items():
+        for student_id in student_ids:
+            info = base_info.get(student_id)
+            if info is None:
+                continue
+
             g_stats = grade_stats.get(student_id, {})
             att = attendance.get(student_id, {})
             lec_att = lecture_attendance.get(student_id, {})

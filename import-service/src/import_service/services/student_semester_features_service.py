@@ -11,8 +11,12 @@ class StudentSemesterFeaturesService:
     def __init__(self, db: Session):
         self.repo = StudentSemesterFeaturesRepository(db)
 
-    def get_all(self) -> list[StudentSemesterFeatures]:
-        base_info = {row["student_id"]: row for row in self.repo.get_base_info()}
+    def get_all(self, limit: int = 1000, offset: int = 0) -> list[StudentSemesterFeatures]:
+        student_ids = self.repo.get_student_ids_page(limit=limit, offset=offset)
+        if not student_ids:
+            return []
+
+        base_info = {row["student_id"]: row for row in self.repo.get_base_info(student_ids)}
         semesters = self.repo.get_all_semesters()
         semesters_by_id = {s["semester_id"]: s for s in semesters}
         ordered_semester_ids = [s["semester_id"] for s in semesters]
@@ -20,15 +24,15 @@ class StudentSemesterFeaturesService:
         def _index_by_pair(rows: list[dict]) -> dict[tuple[int, int], dict]:
             return {(r["student_id"], r["semester_id"]): r for r in rows}
 
-        grade_stats = _index_by_pair(self.repo.get_grade_stats_by_semester())
-        late_submissions = _index_by_pair(self.repo.get_late_submissions_by_semester())
-        attendance = _index_by_pair(self.repo.get_attendance_stats_by_semester())
-        lecture_attendance = _index_by_pair(self.repo.get_attendance_by_session_type_and_semester(SessionType.lecture))
-        lab_attendance = _index_by_pair(self.repo.get_attendance_by_session_type_and_semester(SessionType.lab))
-        expected_sessions = _index_by_pair(self.repo.get_expected_gradable_sessions_by_semester())
-        graded_sessions = _index_by_pair(self.repo.get_graded_sessions_count_by_semester())
+        grade_stats = _index_by_pair(self.repo.get_grade_stats_by_semester(student_ids))
+        late_submissions = _index_by_pair(self.repo.get_late_submissions_by_semester(student_ids))
+        attendance = _index_by_pair(self.repo.get_attendance_stats_by_semester(student_ids))
+        lecture_attendance = _index_by_pair(self.repo.get_attendance_by_session_type_and_semester(student_ids, SessionType.lecture))
+        lab_attendance = _index_by_pair(self.repo.get_attendance_by_session_type_and_semester(student_ids, SessionType.lab))
+        expected_sessions = _index_by_pair(self.repo.get_expected_gradable_sessions_by_semester(student_ids))
+        graded_sessions = _index_by_pair(self.repo.get_graded_sessions_count_by_semester(student_ids))
 
-        enrollment_rows = self.repo.get_enrollments_by_semester()
+        enrollment_rows = self.repo.get_enrollments_by_semester(student_ids)
         subjects_by_student_semester: dict[tuple[int, int], set[int]] = defaultdict(set)
         semesters_by_student: dict[int, set[int]] = defaultdict(set)
         for row in enrollment_rows:
@@ -38,7 +42,11 @@ class StudentSemesterFeaturesService:
 
         result: list[StudentSemesterFeatures] = []
 
-        for student_id, info in base_info.items():
+        for student_id in student_ids:
+            info = base_info.get(student_id)
+            if info is None:
+                continue
+
             student_semesters = semesters_by_student.get(student_id, set())
 
             for semester_id in ordered_semester_ids:
@@ -81,7 +89,6 @@ class StudentSemesterFeaturesService:
                     next_subjects = subjects_by_student_semester.get((student_id, next_semester_id), set())
                     repeated_subjects_count = len(current_subjects & next_subjects)
                 else:
-                    # останній відомий семестр — немає даних про майбутнє
                     disappeared_next_semester = False
                     repeated_subjects_count = 0
 
