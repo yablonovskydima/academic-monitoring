@@ -2,26 +2,14 @@ from ml_service.schemas.student_semester_features import StudentSemesterFeatures
 
 
 class TargetCalculator:
-    """
-    Calculates target (0-100) for training the model based on ALL student indicators in a specific semester.
-
-    Two-stage logic:
-    1. Base score — a weighted combination of gradient indicators (grades, absences, failure, instability).
-    2. Catastrophic rules — strictly LIMIT the base score from above (min) if
-    a critical scenario has occurred (disappeared, repeats a subject, failure due to absences).
-    Limitation, not fixation — therefore, a student with bad base indicators
-    And catastrophe remains at his (worst) level, and does not get pulled up.
-    """
-
-
     WEIGHT_AVG_GRADE = 0.5
     WEIGHT_GRADE_STDDEV = 0.35
-    WEIGHT_ABSENCE_PERCENT = 0.15
+    WEIGHT_LECTURE_ABSENCE = 0.1
+    WEIGHT_LAB_ABSENCE = 0.15
     WEIGHT_UNWORKED_ABSENCES = 2.0
     WEIGHT_MISSING_SUBMISSIONS = 3.0
     WEIGHT_LATE_SUBMISSIONS = 1.0
 
-    # catastrophic thresholds
     CRITICAL_ABSENCE_THRESHOLD = 75.0
     DISAPPEARED_TARGET = 0.0
     REPEATED_SUBJECT_CAP = 30.0
@@ -32,7 +20,6 @@ class TargetCalculator:
             return self.DISAPPEARED_TARGET
 
         base = self._calculate_base_score(features)
-
 
         if features.repeated_subjects_count > 0:
             base = min(base, self.REPEATED_SUBJECT_CAP)
@@ -50,7 +37,8 @@ class TargetCalculator:
         score = (
             features.avg_grade * self.WEIGHT_AVG_GRADE
             - features.grade_stddev * self.WEIGHT_GRADE_STDDEV
-            - features.absence_percent * self.WEIGHT_ABSENCE_PERCENT
+            - features.lecture_absence_percent * self.WEIGHT_LECTURE_ABSENCE
+            - features.lab_absence_percent * self.WEIGHT_LAB_ABSENCE
             - features.unworked_absences_count * self.WEIGHT_UNWORKED_ABSENCES
             - features.missing_submissions_count * self.WEIGHT_MISSING_SUBMISSIONS
             - features.late_submissions_count * self.WEIGHT_LATE_SUBMISSIONS
@@ -62,9 +50,6 @@ class TargetCalculator:
         semester_features: list[StudentSemesterFeatures],
         all_semester_ids_ordered: list[int],
     ) -> tuple[list[StudentSemesterFeatures], list[float]]:
-        """
-        Forms (X, Y) for learning - excludes the last known semester of each student, because there is no reliable signal about the future for them.
-        """
         last_semester_by_student: dict[int, int] = {}
         for f in semester_features:
             idx = all_semester_ids_ordered.index(f.semester_id)
