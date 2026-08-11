@@ -56,3 +56,13 @@ class ImportServiceClient:
             offset += page_size
 
         return all_features
+
+    def get_semesters(self) -> list[dict]:
+        response = httpx.get(f"{self.base_url}/semesters/", timeout=10.0)
+        response.raise_for_status()
+        return response.json()
+
+    def get_current_semester(self) -> dict:
+        response = httpx.get(f"{self.base_url}/semesters/current", timeout=10.0)
+        response.raise_for_status()
+        return response.json()
