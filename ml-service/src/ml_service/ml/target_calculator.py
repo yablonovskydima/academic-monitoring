@@ -45,11 +45,25 @@ class TargetCalculator:
         )
         return max(0.0, min(100.0, score))
 
-    def build_training_dataset(
-        self,
-        semester_features: list[StudentSemesterFeatures],
-        all_semester_ids_ordered: list[int],
-    ) -> tuple[list[StudentSemesterFeatures], list[float]]:
+    def calculate_expulsion_label(self, features: StudentSemesterFeatures) -> int:
+        return 1 if features.disappeared_next_semester else 0
+
+    def calculate_debt_label(self, features: StudentSemesterFeatures) -> int:
+        return 1 if features.repeated_subjects_count > 0 else 0
+
+    def calculate_admission_denial_label(self, features: StudentSemesterFeatures) -> int:
+        if features.study_mode != "full_time":
+            return 0
+        if (
+            features.lecture_absence_percent >= self.CRITICAL_ABSENCE_THRESHOLD
+            or features.lab_absence_percent >= self.CRITICAL_ABSENCE_THRESHOLD
+        ):
+            return 1
+        return 0
+
+    def _filter_last_semester(
+        self, semester_features: list[StudentSemesterFeatures], all_semester_ids_ordered: list[int]
+    ) -> list[StudentSemesterFeatures]:
         last_semester_by_student: dict[int, int] = {}
         for f in semester_features:
             idx = all_semester_ids_ordered.index(f.semester_id)
@@ -57,15 +71,28 @@ class TargetCalculator:
             if current_last_id is None or idx > all_semester_ids_ordered.index(current_last_id):
                 last_semester_by_student[f.student_id] = f.semester_id
 
-        X: list[StudentSemesterFeatures] = []
-        y: list[float] = []
+        return [
+            f for f in semester_features
+            if f.semester_id != last_semester_by_student.get(f.student_id)
+        ]
 
-        for f in semester_features:
-            if f.semester_id == last_semester_by_student.get(f.student_id):
-                continue
+    def build_training_dataset(
+        self,
+        semester_features: list[StudentSemesterFeatures],
+        all_semester_ids_ordered: list[int],
+    ) -> tuple[list[StudentSemesterFeatures], list[float]]:
+        filtered = self._filter_last_semester(semester_features, all_semester_ids_ordered)
+        X = filtered
+        y = [self.calculate_target(f) for f in filtered]
+        return X, y
 
-            target = self.calculate_target(f)
-            X.append(f)
-            y.append(target)
-
+    def build_classification_dataset(
+        self,
+        semester_features: list[StudentSemesterFeatures],
+        all_semester_ids_ordered: list[int],
+        label_fn,
+    ) -> tuple[list[StudentSemesterFeatures], list[int]]:
+        filtered = self._filter_last_semester(semester_features, all_semester_ids_ordered)
+        X = filtered
+        y = [label_fn(f) for f in filtered]
         return X, y

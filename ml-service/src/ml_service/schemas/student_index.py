@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from ml_service.models.student_index import IndexCategory
 from ml_service.schemas.index_explanation import IndexExplanationOut
 from ml_service.schemas.feature_snapshot import FeatureSnapshotOut
+from ml_service.schemas.risk_assessment import RiskAssessmentOut
 
 
 class StudentIndexCreate(BaseModel):
@@ -31,3 +32,4 @@ class StudentIndexOut(BaseModel):
 class StudentIndexFull(StudentIndexOut):
     explanations: list[IndexExplanationOut] = []
     feature_snapshot: FeatureSnapshotOut | None = None
+    risk_assessments: list[RiskAssessmentOut] = []

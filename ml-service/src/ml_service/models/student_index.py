@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ml_service.models.model_version import ModelVersion
     from ml_service.models.index_explanation import IndexExplanation
     from ml_service.models.feature_snapshot import FeatureSnapshot
+    from ml_service.models.risk_assessment import RiskAssessment
 
 
 class IndexCategory(str, enum.Enum):
@@ -35,3 +36,4 @@ class StudentIndex(Base):
     model_version: Mapped["ModelVersion"] = relationship(back_populates="student_indexes")
     explanations: Mapped[list["IndexExplanation"]] = relationship(back_populates="student_index")
     feature_snapshot: Mapped["FeatureSnapshot"] = relationship(back_populates="student_index", uselist=False)
+    risk_assessments: Mapped[list["RiskAssessment"]] = relationship(back_populates="student_index")

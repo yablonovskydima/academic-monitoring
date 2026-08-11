@@ -2,10 +2,13 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from ml_service.models.model_version import ModelPurpose
+
 
 class ModelVersionCreate(BaseModel):
     version_label: str
     algorithm: str
+    purpose: ModelPurpose
     trained_at: datetime
     training_data_from: date
     training_data_to: date
@@ -27,6 +30,7 @@ class ModelVersionOut(BaseModel):
     id: int
     version_label: str
     algorithm: str
+    purpose: ModelPurpose
     trained_at: datetime
     training_data_from: date
     training_data_to: date
