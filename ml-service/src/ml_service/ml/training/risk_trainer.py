@@ -4,13 +4,13 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from xgboost import XGBClassifier
 
 
-class ClassificationResult:
+class RiskResult:
     def __init__(self, model: XGBClassifier, metrics: dict):
         self.model = model
         self.metrics = metrics
 
 
-class ClassifierTrainer:
+class RiskTrainer:
     N_ESTIMATORS = 200
     MAX_DEPTH = 4
     LEARNING_RATE = 0.1
@@ -18,7 +18,7 @@ class ClassifierTrainer:
     RANDOM_STATE = 42
     MIN_TRAINING_SAMPLES = 50
 
-    def train(self, X: pd.DataFrame, y: list[int]) -> ClassificationResult:
+    def train(self, X: pd.DataFrame, y: list[int]) -> RiskResult:
         if len(X) < self.MIN_TRAINING_SAMPLES:
             raise ValueError(
                 f"Not enough training samples: got {len(X)}, need at least {self.MIN_TRAINING_SAMPLES}"
@@ -52,4 +52,4 @@ class ClassifierTrainer:
             "positive_rate": float(sum(y) / len(y)),
         }
 
-        return ClassificationResult(model=model, metrics=metrics)
+        return RiskResult(model=model, metrics=metrics)

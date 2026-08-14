@@ -16,6 +16,8 @@ class ModelPurpose(str, enum.Enum):
     expulsion_classifier = "expulsion_classifier"
     debt_classifier = "debt_classifier"
     admission_classifier = "admission_classifier"
+    index_forecast_horizon_2 = "index_forecast_horizon_2"
+    index_forecast_horizon_3 = "index_forecast_horizon_3"
 
 
 class ModelVersion(Base):

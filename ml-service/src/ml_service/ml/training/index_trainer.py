@@ -10,7 +10,7 @@ class TrainingResult:
         self.metrics = metrics
 
 
-class ModelTrainer:
+class IndexTrainer:
     N_ESTIMATORS = 200
     MAX_DEPTH = 4
     LEARNING_RATE = 0.1
