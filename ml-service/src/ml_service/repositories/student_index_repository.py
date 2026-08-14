@@ -26,6 +26,8 @@ class StudentIndexRepository:
             .options(
                 selectinload(StudentIndex.explanations),
                 selectinload(StudentIndex.feature_snapshot),
+                selectinload(StudentIndex.risk_assessments),
+                selectinload(StudentIndex.forecasts),
             )
             .where(StudentIndex.student_id == student_id)
             .order_by(StudentIndex.calculated_at.desc())
