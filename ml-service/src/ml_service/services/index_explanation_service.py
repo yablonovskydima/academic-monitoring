@@ -23,5 +23,14 @@ class IndexExplanationService:
         ]
         return self.repo.bulk_save(explanations)
 
+    def bulk_create_many(
+            self, items: list[tuple[int, IndexExplanationCreate]]
+    ) -> list[IndexExplanation]:
+        explanations = [
+            IndexExplanation(student_index_id=student_index_id, **data.model_dump())
+            for student_index_id, data in items
+        ]
+        return self.repo.bulk_save(explanations)
+
     def delete(self, explanation_id: int) -> bool:
         return self.repo.delete(explanation_id)

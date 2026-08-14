@@ -55,13 +55,17 @@ class ForecastInferencePipeline:
             for purpose, model in self._models.items()
         }
 
+        all_forecasts: list[tuple[int, IndexForecastCreate]] = []
+
         for idx, student_index in enumerate(student_indexes):
-            forecasts_data = [
-                IndexForecastCreate(
-                    semesters_ahead=FORECAST_HORIZONS[purpose],
-                    predicted_index_value=float(pred_array[idx]),
-                    model_version_id=self._versions[purpose].id,
-                )
-                for purpose, pred_array in predictions.items()
-            ]
-            self.forecast_service.bulk_create(student_index.id, forecasts_data)
+            for purpose, pred_array in predictions.items():
+                all_forecasts.append((
+                    student_index.id,
+                    IndexForecastCreate(
+                        semesters_ahead=FORECAST_HORIZONS[purpose],
+                        predicted_index_value=float(pred_array[idx]),
+                        model_version_id=self._versions[purpose].id,
+                    ),
+                ))
+
+        self.forecast_service.bulk_create_many(all_forecasts)

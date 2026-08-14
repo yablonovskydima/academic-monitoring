@@ -25,5 +25,14 @@ class IndexForecastService:
         ]
         return self.repo.bulk_save(forecasts)
 
+    def bulk_create_many(
+        self, items: list[tuple[int, IndexForecastCreate]]
+    ) -> list[IndexForecast]:
+        forecasts = [
+            IndexForecast(student_index_id=student_index_id, **data.model_dump())
+            for student_index_id, data in items
+        ]
+        return self.repo.bulk_save(forecasts)
+
     def delete(self, forecast_id: int) -> bool:
         return self.repo.delete(forecast_id)

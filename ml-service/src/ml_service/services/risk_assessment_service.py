@@ -30,5 +30,14 @@ class RiskAssessmentService:
         ]
         return self.repo.bulk_save(assessments)
 
+    def bulk_create_many(
+        self, items: list[tuple[int, RiskAssessmentCreate]]
+    ) -> list[RiskAssessment]:
+        assessments = [
+            RiskAssessment(student_index_id=student_index_id, **data.model_dump())
+            for student_index_id, data in items
+        ]
+        return self.repo.bulk_save(assessments)
+
     def delete(self, assessment_id: int) -> bool:
         return self.repo.delete(assessment_id)

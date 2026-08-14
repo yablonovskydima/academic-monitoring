@@ -53,13 +53,18 @@ class RiskInferencePipeline:
             for purpose, model in self._models.items()
         }
 
+        all_assessments: list[tuple[int, RiskAssessmentCreate]] = []
+
         for idx, student_index in enumerate(student_indexes):
-            assessments_data = [
-                RiskAssessmentCreate(
-                    risk_type=RISK_TYPE_BY_PURPOSE[purpose],
-                    probability=float(proba_array[idx]),
-                    model_version_id=self._versions[purpose].id,
-                )
-                for purpose, proba_array in probabilities.items()
-            ]
-            self.risk_assessment_service.bulk_create(student_index.id, assessments_data)
+            for purpose, proba_array in probabilities.items():
+                all_assessments.append((
+                    student_index.id,
+                    RiskAssessmentCreate(
+                        risk_type=RISK_TYPE_BY_PURPOSE[purpose],
+                        probability=float(proba_array[idx]),
+                        model_version_id=self._versions[purpose].id,
+                    ),
+                ))
+
+        # ОДИН bulk-виклик на весь батч (замість 500 окремих)
+        self.risk_assessment_service.bulk_create_many(all_assessments)

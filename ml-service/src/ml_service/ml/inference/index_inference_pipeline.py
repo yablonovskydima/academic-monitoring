@@ -7,8 +7,10 @@ from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.services.student_index_service import StudentIndexService
 from ml_service.services.index_explanation_service import IndexExplanationService
+from ml_service.services.feature_snapshot_service import FeatureSnapshotService
 from ml_service.schemas.student_index import StudentIndexCreate
 from ml_service.schemas.index_explanation import IndexExplanationCreate
+from ml_service.schemas.feature_snapshot import FeatureSnapshotCreate
 from ml_service.models.model_version import ModelPurpose
 from ml_service.models.student_index import IndexCategory, StudentIndex
 
@@ -25,12 +27,14 @@ class IndexInferencePipeline:
         model_version_service: ModelVersionService,
         student_index_service: StudentIndexService,
         explanation_service: IndexExplanationService,
+        snapshot_service: FeatureSnapshotService,
     ):
         self.feature_encoder = feature_encoder
         self.model_persistence = model_persistence
         self.model_version_service = model_version_service
         self.student_index_service = student_index_service
         self.explanation_service = explanation_service
+        self.snapshot_service = snapshot_service
 
         self._active_version = None
         self._model = None
@@ -54,24 +58,39 @@ class IndexInferencePipeline:
         predictions = self._model.predict(X_encoded)
         shap_values = self._explainer.shap_values(X_encoded)
 
-        created_indexes = []
+        index_data_list = []
         for idx, features in enumerate(batch):
             index_value = float(predictions[idx])
             category = self._determine_category(index_value)
 
-            student_index = self.student_index_service.create(
-                StudentIndexCreate(
-                    student_id=features.student_id,
-                    semester_id=semester_id,
-                    model_version_id=self._active_version.id,
-                    index_value=index_value,
-                    category=category,
-                    calculated_at=datetime.utcnow(),
-                )
-            )
+            index_data_list.append(StudentIndexCreate(
+                student_id=features.student_id,
+                semester_id=semester_id,
+                model_version_id=self._active_version.id,
+                index_value=index_value,
+                category=category,
+                calculated_at=datetime.utcnow(),
+            ))
 
-            self._save_explanations(student_index.id, X_encoded.iloc[idx], shap_values[idx])
-            created_indexes.append(student_index)
+        created_indexes = self.student_index_service.bulk_create(index_data_list)
+
+        all_explanations: list[tuple[int, IndexExplanationCreate]] = []
+        all_snapshots: list[tuple[int, FeatureSnapshotCreate]] = []
+
+        for idx, (student_index, features) in enumerate(zip(created_indexes, batch)):
+            feature_row = X_encoded.iloc[idx]
+            shap_row = shap_values[idx]
+
+            for exp_data in self._build_explanations(feature_row, shap_row):
+                all_explanations.append((student_index.id, exp_data))
+
+            all_snapshots.append((
+                student_index.id,
+                FeatureSnapshotCreate(raw_features=features.model_dump()),
+            ))
+
+        self.explanation_service.bulk_create_many(all_explanations)
+        self.snapshot_service.bulk_create_many(all_snapshots)
 
         return created_indexes
 
@@ -82,7 +101,7 @@ class IndexInferencePipeline:
             return IndexCategory.medium
         return IndexCategory.low
 
-    def _save_explanations(self, student_index_id: int, feature_row, shap_row) -> None:
+    def _build_explanations(self, feature_row, shap_row) -> list[IndexExplanationCreate]:
         feature_names = feature_row.index.tolist()
         feature_values = feature_row.values.tolist()
 
@@ -90,7 +109,7 @@ class IndexInferencePipeline:
         contributions.sort(key=lambda x: abs(x[2]), reverse=True)
         top_contributions = contributions[:TOP_N_EXPLANATIONS]
 
-        explanations_data = [
+        return [
             IndexExplanationCreate(
                 feature_name=name,
                 feature_value=float(value),
@@ -99,5 +118,3 @@ class IndexInferencePipeline:
             )
             for rank, (name, value, shap_val) in enumerate(top_contributions)
         ]
-
-        self.explanation_service.bulk_create(student_index_id, explanations_data)

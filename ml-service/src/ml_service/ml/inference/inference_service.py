@@ -9,6 +9,7 @@ from ml_service.ml.inference.forecast_inference_pipeline import ForecastInferenc
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.services.student_index_service import StudentIndexService
 from ml_service.services.index_explanation_service import IndexExplanationService
+from ml_service.services.feature_snapshot_service import FeatureSnapshotService
 from ml_service.services.risk_assessment_service import RiskAssessmentService
 from ml_service.services.index_forecast_service import IndexForecastService
 
@@ -24,7 +25,7 @@ class InferenceService:
 
         self.index_pipeline = IndexInferencePipeline(
             feature_encoder, model_persistence, model_version_service,
-            StudentIndexService(db), IndexExplanationService(db),
+            StudentIndexService(db), IndexExplanationService(db), FeatureSnapshotService(db),
         )
         self.risk_pipeline = RiskInferencePipeline(
             feature_encoder, model_persistence, model_version_service,

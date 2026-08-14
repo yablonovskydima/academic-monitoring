@@ -16,5 +16,14 @@ class FeatureSnapshotService:
         snapshot = FeatureSnapshot(student_index_id=student_index_id, **data.model_dump())
         return self.repo.save(snapshot)
 
+    def bulk_create_many(
+            self, items: list[tuple[int, FeatureSnapshotCreate]]
+    ) -> list[FeatureSnapshot]:
+        snapshots = [
+            FeatureSnapshot(student_index_id=student_index_id, **data.model_dump())
+            for student_index_id, data in items
+        ]
+        return self.repo.bulk_save(snapshots)
+
     def delete(self, snapshot_id: int) -> bool:
         return self.repo.delete(snapshot_id)
