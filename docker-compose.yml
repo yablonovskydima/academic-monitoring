@@ -15,6 +15,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      
+  postgres:
+    image: postgres:16
+    container_name: import-service-db
+    environment:
+      POSTGRES_USER: ${DB_USER_IMPORT_SERVICE}
+      POSTGRES_PASSWORD: ${DB_PASSWORD_IMPORT_SERVICE}
+      POSTGRES_DB: ${DB_NAME_IMPORT_SERVICE}
+    ports:
+      - "5432:5432"
+    volumes:
+      - import_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER_IMPORT_SERVICE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   ml_postgres_data:
+  import_postgres_data:

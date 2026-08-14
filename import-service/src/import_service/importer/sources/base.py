@@ -1,0 +1,33 @@
+from abc import ABC, abstractmethod
+
+
+class DataSource(ABC):
+    @abstractmethod
+    def load_groups(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_students(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_semesters(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_teachers(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_subjects(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_subject_offerings(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_enrollments(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_class_sessions(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_attendance(self) -> list[dict]: ...
+
+    @abstractmethod
+    def load_grades(self) -> list[dict]: ...

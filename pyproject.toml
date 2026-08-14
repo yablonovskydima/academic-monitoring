@@ -3,6 +3,7 @@ name = "academic-monitoring"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "faker>=40.32.0",
     "fastapi>=0.138.2",
     "httpx>=0.28.1",
     "pandas>=3.0.5",
