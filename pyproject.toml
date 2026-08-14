@@ -5,10 +5,18 @@ requires-python = ">=3.12"
 dependencies = [
     "faker>=40.32.0",
     "fastapi>=0.138.2",
+    "httpx>=0.28.1",
+    "pandas>=3.0.5",
+    "pydantic-settings>=2.14.2",
+    "scikit-learn>=1.9.0",
+    "shap>=0.52.0",
+    "sqlalchemy>=2.0.51",
     "uvicorn>=0.49.0",
+    "xgboost>=3.4.0",
 ]
 
 [tool.uv.workspace]
 members = [
     "import-service",
+    "ml-service",
 ]

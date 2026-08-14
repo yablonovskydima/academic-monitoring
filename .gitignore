@@ -27,5 +27,5 @@ Thumbs.db
 *.joblib
 ml-service/**/models/*.pkl
 
-#test data
 data/
+ml-service/trained_models/*.pkl
