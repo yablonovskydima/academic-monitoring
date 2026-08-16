@@ -253,6 +253,34 @@ def generate_grades(enrollments: list[dict], sessions_by_offering: dict[int, lis
 
     return grades
 
+def apply_dropout(students: list[dict], enrollments: list[dict], offerings: list[dict], semesters: list[dict]) -> list[dict]:
+    dropout_count = int(len(students) * config.DROPOUT_RATE)
+    if dropout_count == 0:
+        return enrollments
+
+    dropout_students = random.sample(students, dropout_count)
+    dropout_student_ids = {s["id"] for s in dropout_students}
+
+    semester_ids_ordered = [s["id"] for s in semesters]
+    offering_semester_map = {o["id"]: o["semester_id"] for o in offerings}
+
+    drop_semester_by_student: dict[int, int] = {}
+    for student_id in dropout_student_ids:
+        drop_index = random.randint(1, len(semester_ids_ordered) - 1)
+        drop_semester_by_student[student_id] = semester_ids_ordered[drop_index]
+
+    filtered = []
+    for e in enrollments:
+        student_id = e["student_id"]
+        if student_id in dropout_student_ids:
+            enrollment_semester_id = offering_semester_map[e["subject_offering_id"]]
+            drop_semester_id = drop_semester_by_student[student_id]
+            if enrollment_semester_id >= drop_semester_id:
+                continue
+        filtered.append(e)
+
+    return filtered
+
 def write_csv(rows: list[dict], filename: str) -> None:
     if not rows:
         print(f"Skipped {filename} — no rows")
@@ -289,6 +317,7 @@ def run_generate():
     write_csv(offerings, "subject_offerings.csv")
 
     enrollments = generate_enrollments(students, offerings, semesters)
+    enrollments = apply_dropout(students, enrollments, offerings, semesters)
     write_csv(enrollments, "enrollments.csv")
 
     semesters_by_id = {s["id"]: s for s in semesters}
@@ -311,7 +340,8 @@ def run_generate():
     print(f"  semesters: {len(semesters)}, teachers: {len(teachers)}, subjects: {len(subjects)}")
     print(f"  subject_offerings: {len(offerings)}, enrollments: {len(enrollments)}")
     print(f"  class_sessions: {len(sessions)}, attendance: {len(attendance)}, grades: {len(grades)}")
-
+    print(f"  dropout applied to ~{int(len(students) * config.DROPOUT_RATE)} students")
 
 if __name__ == "__main__":
     run_generate()
+

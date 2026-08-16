@@ -96,3 +96,35 @@ class TargetCalculator:
         X = filtered
         y = [label_fn(f) for f in filtered]
         return X, y
+
+    def build_horizon_dataset(
+            self,
+            semester_features: list[StudentSemesterFeatures],
+            all_semester_ids_ordered: list[int],
+            horizon: int,
+    ) -> tuple[list[StudentSemesterFeatures], list[float]]:
+        features_by_key = {(f.student_id, f.semester_id): f for f in semester_features}
+
+        X: list[StudentSemesterFeatures] = []
+        y: list[float] = []
+
+        for f in semester_features:
+            current_idx = all_semester_ids_ordered.index(f.semester_id)
+            target_idx = current_idx + horizon
+
+            if target_idx >= len(all_semester_ids_ordered):
+                continue  # немає такого майбутнього семестру в даних взагалі
+
+            target_semester_id = all_semester_ids_ordered[target_idx]
+            future_features = features_by_key.get((f.student_id, target_semester_id))
+
+            if future_features is None:
+                X.append(f)
+                y.append(0.0)
+                continue
+
+            target_value = self.calculate_target(future_features)
+            X.append(f)
+            y.append(target_value)
+
+        return X, y

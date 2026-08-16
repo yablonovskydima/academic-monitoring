@@ -1,9 +1,5 @@
 from datetime import datetime
 
-from ml_service.ml.targets.target_calculator import TargetCalculator
-from ml_service.ml.encoding.feature_encoder import FeatureEncoder
-from ml_service.ml.training.risk_trainer import RiskTrainer
-from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.schemas.model_version import ModelVersionCreate
 from ml_service.models.model_version import ModelVersion, ModelPurpose
@@ -18,15 +14,15 @@ RISK_CONFIGS = [
 class RiskTrainingPipeline:
     def __init__(
         self,
-        target_calculator: TargetCalculator,
-        feature_encoder: FeatureEncoder,
-        classifier_trainer: RiskTrainer,
-        model_persistence: ModelPersistence,
+        target_calculator,
+        feature_encoder,
+        risk_trainer,
+        model_persistence,
         model_version_service: ModelVersionService,
     ):
         self.target_calculator = target_calculator
         self.feature_encoder = feature_encoder
-        self.classifier_trainer = classifier_trainer
+        self.risk_trainer = risk_trainer
         self.model_persistence = model_persistence
         self.model_version_service = model_version_service
 
@@ -46,8 +42,23 @@ class RiskTrainingPipeline:
             X_raw, y = self.target_calculator.build_classification_dataset(
                 semester_features, all_semester_ids_ordered, label_fn
             )
+
+            # --- ЛОГ: розподіл класів перед навчанням ---
+            positive_count = sum(y)
+            total_count = len(y)
+            print(
+                f"[risk_training] {purpose.value}: "
+                f"total={total_count}, positive={positive_count}, "
+                f"negative={total_count - positive_count}, "
+                f"unique_classes={set(y)}"
+            )
+
+            if len(set(y)) < 2:
+                print(f"[risk_training] SKIPPING {purpose.value} — only one class present, cannot train.")
+                continue
+
             X_encoded = self.feature_encoder.encode(X_raw)
-            result = self.classifier_trainer.train(X_encoded, y)
+            result = self.risk_trainer.train(X_encoded, y)
             model_file_path = self.model_persistence.save(result.model, f"{purpose.value}_{version_label}")
 
             results[purpose.value] = self.model_version_service.create(

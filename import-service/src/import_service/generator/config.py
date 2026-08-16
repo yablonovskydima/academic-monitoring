@@ -5,7 +5,7 @@ DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 # ---------- groups / students ----------
 
 GROUPS_COUNT = 80
-STUDENTS_PER_GROUP = 25          # 80 * 25 = 2000 студентів
+STUDENTS_PER_GROUP = 25
 FACULTY = "Computer Science"
 
 STUDY_MODE_WEIGHTS = {
@@ -56,3 +56,5 @@ WORKED_OFF_PROBABILITY_IF_ABSENT = 0.4
 SCORE_MEAN = 75
 SCORE_STDDEV = 15
 LATE_SUBMISSION_PROBABILITY = 0.15
+
+DROPOUT_RATE = 0.04
