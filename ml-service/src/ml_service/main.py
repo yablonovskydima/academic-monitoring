@@ -10,7 +10,7 @@ async def lifespan(app: FastAPI):
     init_db()
     yield
 
-app = FastAPI(title="ML Service")
+app = FastAPI(title="ML Service", lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(training.router)
 app.include_router(inference.router)

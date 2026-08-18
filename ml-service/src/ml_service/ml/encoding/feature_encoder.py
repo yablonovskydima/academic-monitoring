@@ -1,6 +1,7 @@
 import pandas as pd
 
 from ml_service.schemas.student_semester_features import StudentSemesterFeatures
+from ml_service.schemas.student_features import StudentFeaturesRaw
 
 FEATURE_COLUMNS = [
     "avg_grade",
@@ -20,13 +21,15 @@ FEATURE_COLUMNS = [
 
 class FeatureEncoder:
 
-    def encode(self, features_list: list[StudentSemesterFeatures]) -> pd.DataFrame:
+    def encode(self, features_list: list[StudentSemesterFeatures | StudentFeaturesRaw]) -> pd.DataFrame:
         rows = [self._encode_one(f) for f in features_list]
         return pd.DataFrame(rows, columns=FEATURE_COLUMNS)
 
-    def _encode_one(self, f: StudentSemesterFeatures) -> dict:
+    def _encode_one(self, f: StudentSemesterFeatures | StudentFeaturesRaw) -> dict:
+        avg_grade = f.avg_grade_overall if isinstance(f, StudentFeaturesRaw) else f.avg_grade
+
         return {
-            "avg_grade": f.avg_grade,
+            "avg_grade": avg_grade,
             "grade_stddev": f.grade_stddev,
             "lecture_absence_percent": f.lecture_absence_percent,
             "lab_absence_percent": f.lab_absence_percent,

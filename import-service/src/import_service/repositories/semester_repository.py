@@ -26,6 +26,12 @@ class SemesterRepository:
             )
         ).first()
 
+    def get_latest_with_data(self) -> Semester | None:
+        return self.session.scalars(
+            select(Semester)
+            .order_by(Semester.start_date.desc())
+        ).first()
+
     def save(self, semester: Semester) -> Semester:
         self.session.add(semester)
         self.session.commit()

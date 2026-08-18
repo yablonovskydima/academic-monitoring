@@ -15,7 +15,7 @@ class ImportServiceClient:
     def __init__(self, base_url: str | None = None):
         self.base_url = base_url or IMPORT_SERVICE_URL
 
-    def get_current_features(self, page_size: int = PAGE_SIZE) -> list[StudentFeaturesRaw]:
+    def get_current_features(self, page_size: int = PAGE_SIZE, ) -> list[StudentFeaturesRaw]:
         all_features: list[StudentFeaturesRaw] = []
         offset = 0
 
@@ -36,7 +36,7 @@ class ImportServiceClient:
 
         return all_features
 
-    def get_semester_features(self, page_size: int = PAGE_SIZE) -> list[StudentSemesterFeatures]:
+    def get_semester_features(self, page_size: int = PAGE_SIZE,) -> list[StudentSemesterFeatures]:
         all_features: list[StudentSemesterFeatures] = []
         offset = 0
 
@@ -58,11 +58,33 @@ class ImportServiceClient:
         return all_features
 
     def get_semesters(self) -> list[dict]:
-        response = httpx.get(f"{self.base_url}/semesters/", timeout=10.0)
+        response = httpx.get(
+            f"{self.base_url}/semesters/",
+            timeout=10.0,
+        )
         response.raise_for_status()
         return response.json()
 
-    def get_current_semester(self) -> dict:
-        response = httpx.get(f"{self.base_url}/semesters/current", timeout=10.0)
+    def get_current_semester(self) -> dict | None:
+        response = httpx.get(
+            f"{self.base_url}/semesters/current",
+            timeout=10.0,
+        )
+
+        if response.status_code == 404:
+            return None
+
+        response.raise_for_status()
+        return response.json()
+
+    def get_latest_semester_with_data(self) -> dict | None:
+        response = httpx.get(
+            f"{self.base_url}/semesters/latest-with-data",
+            timeout=10.0,
+        )
+
+        if response.status_code == 404:
+            return None
+
         response.raise_for_status()
         return response.json()

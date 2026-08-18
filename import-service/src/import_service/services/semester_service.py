@@ -18,6 +18,9 @@ class SemesterService:
     def get_current(self) -> Semester | None:
         return self.repo.get_current()
 
+    def get_latest_with_data(self) -> Semester | None:
+        return self.repo.get_latest_with_data()
+
     def create(self, data: SemesterCreate) -> Semester:
         semester = Semester(**data.model_dump())
         return self.repo.save(semester)
