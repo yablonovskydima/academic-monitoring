@@ -11,11 +11,6 @@ fake = Faker("en_US")
 
 _counters: dict[str, int] = {}
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _next_id(entity: str) -> int:
     _counters[entity] = _counters.get(entity, 0) + 1
     return _counters[entity]
@@ -31,14 +26,6 @@ def _get_profile_settings(student: dict) -> dict:
 
 
 def _get_absence_probability(student: dict) -> float:
-    """
-    Return absence probability for a student.
-
-    Part-time and individual-schedule students currently have no
-    generated absences, matching the original generator behavior.
-
-    Full-time students use their synthetic risk profile.
-    """
     if student["study_mode"] != "full_time":
         return config.ABSENCE_PROBABILITY[student["study_mode"]]
 
@@ -46,9 +33,6 @@ def _get_absence_probability(student: dict) -> float:
 
 
 def _get_score_parameters(student: dict) -> tuple[float, float]:
-    """
-    Return score distribution parameters for a student.
-    """
     settings = _get_profile_settings(student)
 
     return (
@@ -58,9 +42,6 @@ def _get_score_parameters(student: dict) -> tuple[float, float]:
 
 
 def _get_late_submission_probability(student: dict) -> float:
-    """
-    Return late-submission probability for a student.
-    """
     return _get_profile_settings(student)["late_submission_probability"]
 
 
@@ -123,9 +104,6 @@ def generate_students(groups: list[dict]) -> list[dict]:
                 "group_id": group["id"],
                 "email": fake.unique.email(),
                 "study_mode": study_mode,
-
-                # Internal field used only by the generator.
-                # It is intentionally not written to students.csv.
                 "risk_profile": risk_profile,
             })
 
@@ -282,17 +260,12 @@ def generate_enrollments(
         for semester in semesters
     }
 
-    # Keep track of subjects selected in the previous semester.
     previous_subjects_by_student: dict[int, set[int]] = {}
 
     for semester_index, semester in enumerate(semesters):
         semester_id = semester["id"]
         available = offerings_by_semester[semester_id]
 
-        # Map subject_id -> offering for the current semester's NATIVE
-        # curriculum only. This never gets mutated during the student
-        # loop below — retake offerings are tracked separately so they
-        # can't leak into other students' "remaining slots" pool.
         offering_by_subject = {
             offering["subject_id"]: offering
             for offering in available
@@ -345,12 +318,6 @@ def generate_enrollments(
                     ):
                         continue
 
-                    # This subject has no native offering this
-                    # semester — create a one-off retake offering.
-                    # Kept OUT of `available`/`offering_by_subject` on
-                    # purpose: it must only ever be used by the student
-                    # actually repeating it, never by the random fill
-                    # below for other students.
                     teacher = random.choice(teachers)
                     retake_offering = {
                         "id": _next_id("subject_offering"),
@@ -426,7 +393,6 @@ def generate_class_sessions(
         start = date.fromisoformat(semester["start_date"])
         end = date.fromisoformat(semester["end_date"])
 
-        # Lectures
         for i in range(config.LECTURES_PER_OFFERING):
             sessions.append({
                 "id": _next_id("class_session"),
@@ -450,7 +416,6 @@ def generate_class_sessions(
                 ).isoformat(),
             })
 
-        # Controls
         for i in range(config.CONTROLS_PER_OFFERING):
             fraction = (
                 (i + 1)
@@ -467,7 +432,6 @@ def generate_class_sessions(
                 "date": control_date.isoformat(),
             })
 
-        # Exam
         sessions.append({
             "id": _next_id("class_session"),
             "subject_offering_id": offering["id"],
@@ -692,7 +656,6 @@ def apply_dropout(
         }
     ]
 
-    # Prefer risk-profile students.
     if len(preferred_students) >= dropout_count:
         dropout_students = random.sample(
             preferred_students,
@@ -747,12 +710,6 @@ def apply_dropout(
     drop_semester_by_student: dict[int, int] = {}
 
     for student_id in dropout_student_ids:
-        # Never drop a student before their first semester.
-        #
-        # randint(1, len - 1) means:
-        #
-        #   semester 1 -> still exists
-        #   semester 2+ -> may be the dropout semester
         drop_index = random.randint(
             1,
             len(semester_ids_ordered) - 1,
@@ -803,7 +760,6 @@ def write_csv(
 
     filepath = config.DATA_DIR / filename
 
-    # Do not write internal generator-only fields.
     output_rows = []
 
     for row in rows:
@@ -837,50 +793,42 @@ def write_csv(
 # ---------------------------------------------------------------------------
 
 def run_generate():
-    # Groups
     groups = generate_groups()
     write_csv(
         groups,
         "groups.csv",
     )
 
-    # Students
     students = generate_students(groups)
     write_csv(
         students,
         "students.csv",
     )
 
-    # Semesters
     semesters = generate_semesters()
     write_csv(
         semesters,
         "semesters.csv",
     )
 
-    # Teachers
     teachers = generate_teachers()
     write_csv(
         teachers,
         "teachers.csv",
     )
 
-    # Subjects
     subjects, subject_ids_by_position = generate_subjects()
     write_csv(
         subjects,
         "subjects.csv",
     )
 
-    # Subject offerings (native, one per subject's own semester position)
     offerings = generate_subject_offerings(
         semesters,
         subject_ids_by_position,
         teachers,
     )
 
-    # Enrollments — may extend `offerings` with retake offerings for
-    # debt-risk repeats, so subject_offerings.csv is written after this.
     enrollments, offerings = generate_enrollments(
         students,
         offerings,
@@ -893,10 +841,6 @@ def run_generate():
         "subject_offerings.csv",
     )
 
-    # Apply dropout BEFORE attendance and grades.
-    #
-    # This is important because a dropped student must have no
-    # attendance/grades in semesters after dropout.
     enrollments = apply_dropout(
         students,
         enrollments,
@@ -909,7 +853,6 @@ def run_generate():
         "enrollments.csv",
     )
 
-    # Class sessions
     semesters_by_id = {
         semester["id"]: semester
         for semester in semesters
@@ -925,7 +868,6 @@ def run_generate():
         "class_sessions.csv",
     )
 
-    # Sessions indexed by offering
     sessions_by_offering: dict[int, list[dict]] = {}
 
     for session in sessions:
@@ -934,13 +876,11 @@ def run_generate():
             [],
         ).append(session)
 
-    # Students indexed by ID
     students_by_id = {
         student["id"]: student
         for student in students
     }
 
-    # Attendance
     attendance = generate_attendance(
         enrollments,
         sessions_by_offering,
@@ -952,7 +892,6 @@ def run_generate():
         "attendance.csv",
     )
 
-    # Grades
     grades = generate_grades(
         enrollments,
         sessions_by_offering,
@@ -964,7 +903,6 @@ def run_generate():
         "grades.csv",
     )
 
-    # Summary
     print("\nSummary:")
     print(
         f"  groups: {len(groups)}, "

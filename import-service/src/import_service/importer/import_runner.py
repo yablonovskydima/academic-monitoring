@@ -192,8 +192,6 @@ def import_grades(
     print(f"Imported {len(created)} grades")
 
 
-# ---------- головний runner ----------
-
 def run_import(source: DataSource):
     db = SessionLocal()
     try:

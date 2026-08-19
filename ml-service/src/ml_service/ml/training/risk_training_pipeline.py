@@ -5,12 +5,7 @@ from ml_service.schemas.model_version import ModelVersionCreate
 from ml_service.models.model_version import ModelVersion, ModelPurpose
 
 RISK_CONFIGS = [
-    # (purpose, label method name, requires_next_semester)
     (ModelPurpose.expulsion_classifier, "calculate_expulsion_label", False),
-    # debt depends on repeated_subjects_count, which compares this
-    # semester's subjects with the following semester's — a student's
-    # last available semester must be excluded, otherwise it gets a
-    # false repeated_subjects_count=0 (no next semester to compare to).
     (ModelPurpose.debt_classifier, "calculate_debt_label", True),
     (ModelPurpose.admission_classifier, "calculate_admission_denial_label", False),
 ]
@@ -48,8 +43,6 @@ class RiskTrainingPipeline:
                 semester_features, all_semester_ids_ordered, label_fn,
                 requires_next_semester=requires_next_semester,
             )
-
-            # --- ЛОГ: розподіл класів перед навчанням ---
             positive_count = sum(y)
             total_count = len(y)
             print(
