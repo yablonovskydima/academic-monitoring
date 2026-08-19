@@ -32,8 +32,8 @@ class IndexTrainingPipeline:
         training_data_from,
         training_data_to,
     ) -> ModelVersion:
-        X_raw, y = self.target_calculator.build_training_dataset(
-            semester_features, all_semester_ids_ordered
+        X_raw, y = self.target_calculator.build_horizon_dataset(
+            semester_features, all_semester_ids_ordered, horizon=1
         )
         X_encoded = self.feature_encoder.encode(X_raw)
         result = self.model_trainer.train(X_encoded, y)

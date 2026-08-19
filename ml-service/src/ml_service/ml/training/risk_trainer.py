@@ -31,12 +31,17 @@ class RiskTrainer:
             X, y, test_size=self.TEST_SIZE, random_state=self.RANDOM_STATE, stratify=y
         )
 
+        positive_count = sum(y_train)
+        negative_count = len(y_train) - positive_count
+        scale_pos_weight = negative_count / positive_count if positive_count > 0 else 1.0
+
         model = XGBClassifier(
             n_estimators=self.N_ESTIMATORS,
             max_depth=self.MAX_DEPTH,
             learning_rate=self.LEARNING_RATE,
             random_state=self.RANDOM_STATE,
             eval_metric="logloss",
+            scale_pos_weight=scale_pos_weight,
         )
         model.fit(X_train, y_train)
 

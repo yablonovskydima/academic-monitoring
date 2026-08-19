@@ -178,15 +178,32 @@ def generate_teachers() -> list[dict]:
     ]
 
 
-def generate_subjects() -> list[dict]:
-    return [
-        {
-            "id": _next_id("subject"),
-            "name": name,
-            "is_elective": random.choice([True, False]),
-        }
-        for name in config.SUBJECT_NAMES
-    ]
+def generate_subjects() -> tuple[list[dict], list[list[int]]]:
+    """
+    Returns (subjects, subject_ids_by_position).
+
+    subject_ids_by_position[i] holds the subject ids that belong to
+    semester position i (config.CURRICULUM[i]), so the offering step
+    knows which subjects are natively offered in which semester.
+    """
+    subjects = []
+    subject_ids_by_position: list[list[int]] = []
+
+    for position_names in config.CURRICULUM:
+        position_ids = []
+
+        for name in position_names:
+            subject = {
+                "id": _next_id("subject"),
+                "name": name,
+                "is_elective": random.choice([True, False]),
+            }
+            subjects.append(subject)
+            position_ids.append(subject["id"])
+
+        subject_ids_by_position.append(position_ids)
+
+    return subjects, subject_ids_by_position
 
 
 # ---------------------------------------------------------------------------
@@ -195,18 +212,22 @@ def generate_subjects() -> list[dict]:
 
 def generate_subject_offerings(
     semesters: list[dict],
-    subjects: list[dict],
+    subject_ids_by_position: list[list[int]],
     teachers: list[dict],
 ) -> list[dict]:
+    """
+    Create one offering per subject in its OWN semester position only
+    (semesters[i] <-> config.CURRICULUM[i]), not in every semester.
+    """
     offerings = []
 
-    for semester in semesters:
-        for subject in subjects:
+    for position, semester in enumerate(semesters):
+        for subject_id in subject_ids_by_position[position]:
             teacher = random.choice(teachers)
 
             offerings.append({
                 "id": _next_id("subject_offering"),
-                "subject_id": subject["id"],
+                "subject_id": subject_id,
                 "semester_id": semester["id"],
                 "teacher_id": teacher["id"],
                 "max_practice_score": 50,
@@ -224,16 +245,24 @@ def generate_enrollments(
     students: list[dict],
     offerings: list[dict],
     semesters: list[dict],
-) -> list[dict]:
+    teachers: list[dict],
+) -> tuple[list[dict], list[dict]]:
     """
-    Generate student enrollments.
+    Generate student enrollments. Returns (enrollments, offerings) —
+    offerings is extended with any retake offerings created below, so
+    callers must use the returned list, not the one passed in.
 
     Normal students:
-        subjects are selected randomly.
+        subjects are selected randomly from that semester's own
+        curriculum position (see config.CURRICULUM) — subjects are
+        NOT shared across semesters, so this never accidentally
+        produces a repeat.
 
     Debt-risk students:
         from the second semester onward, 1-2 subjects from the previous
-        semester are intentionally repeated.
+        semester are intentionally repeated. Since a subject normally
+        only has an offering in its own semester position, repeating
+        one means creating a one-off "retake" offering for it here.
 
     This creates real positive examples for:
 
@@ -242,6 +271,7 @@ def generate_enrollments(
     without adding any fake ML-specific fields to the generated data.
     """
     enrollments = []
+    all_offerings = list(offerings)
 
     offerings_by_semester: dict[int, list[dict]] = {
         semester["id"]: [
@@ -259,11 +289,15 @@ def generate_enrollments(
         semester_id = semester["id"]
         available = offerings_by_semester[semester_id]
 
-        # Map subject_id -> offering for the current semester.
+        # Map subject_id -> offering for the current semester's NATIVE
+        # curriculum only. This never gets mutated during the student
+        # loop below — retake offerings are tracked separately so they
+        # can't leak into other students' "remaining slots" pool.
         offering_by_subject = {
             offering["subject_id"]: offering
             for offering in available
         }
+        retake_offering_by_subject: dict[int, dict] = {}
 
         for student in students:
             student_id = student["id"]
@@ -304,6 +338,32 @@ def generate_enrollments(
                     repeat_count,
                 )
 
+                for subject_id in repeated_subjects:
+                    if (
+                        subject_id in offering_by_subject
+                        or subject_id in retake_offering_by_subject
+                    ):
+                        continue
+
+                    # This subject has no native offering this
+                    # semester — create a one-off retake offering.
+                    # Kept OUT of `available`/`offering_by_subject` on
+                    # purpose: it must only ever be used by the student
+                    # actually repeating it, never by the random fill
+                    # below for other students.
+                    teacher = random.choice(teachers)
+                    retake_offering = {
+                        "id": _next_id("subject_offering"),
+                        "subject_id": subject_id,
+                        "semester_id": semester_id,
+                        "teacher_id": teacher["id"],
+                        "max_practice_score": 50,
+                        "max_exam_score": 50,
+                    }
+
+                    all_offerings.append(retake_offering)
+                    retake_offering_by_subject[subject_id] = retake_offering
+
                 selected_subject_ids.update(repeated_subjects)
 
             # ---------------------------------------------------------------
@@ -331,7 +391,10 @@ def generate_enrollments(
             # ---------------------------------------------------------------
 
             for subject_id in selected_subject_ids:
-                offering = offering_by_subject[subject_id]
+                offering = (
+                    offering_by_subject.get(subject_id)
+                    or retake_offering_by_subject[subject_id]
+                )
 
                 enrollments.append({
                     "id": _next_id("enrollment"),
@@ -344,7 +407,7 @@ def generate_enrollments(
                 selected_subject_ids
             )
 
-    return enrollments
+    return enrollments, all_offerings
 
 
 # ---------------------------------------------------------------------------
@@ -803,28 +866,31 @@ def run_generate():
     )
 
     # Subjects
-    subjects = generate_subjects()
+    subjects, subject_ids_by_position = generate_subjects()
     write_csv(
         subjects,
         "subjects.csv",
     )
 
-    # Subject offerings
+    # Subject offerings (native, one per subject's own semester position)
     offerings = generate_subject_offerings(
         semesters,
-        subjects,
+        subject_ids_by_position,
         teachers,
     )
-    write_csv(
-        offerings,
-        "subject_offerings.csv",
-    )
 
-    # Enrollments
-    enrollments = generate_enrollments(
+    # Enrollments — may extend `offerings` with retake offerings for
+    # debt-risk repeats, so subject_offerings.csv is written after this.
+    enrollments, offerings = generate_enrollments(
         students,
         offerings,
         semesters,
+        teachers,
+    )
+
+    write_csv(
+        offerings,
+        "subject_offerings.csv",
     )
 
     # Apply dropout BEFORE attendance and grades.

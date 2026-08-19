@@ -17,6 +17,7 @@ class TargetCalculator:
     # ---------- classification thresholds ----------
 
     CRITICAL_ABSENCE_THRESHOLD = 75.0
+    CRITICAL_GRADE_THRESHOLD = 50.0
 
     # ---------- special target values ----------
 
@@ -101,7 +102,12 @@ class TargetCalculator:
         features: StudentSemesterFeatures,
     ) -> int:
         """
-        1 if a full-time student has critical lecture/lab absence.
+        1 if a full-time student has critical lecture/lab absence,
+        or a failing grade average this semester.
+
+        avg_grade is a semester-wide aggregate (we don't have
+        per-subject grades at this granularity), so this is an
+        approximation of "a subject grade below 50".
         """
         if features.study_mode != "full_time":
             return 0
@@ -109,6 +115,7 @@ class TargetCalculator:
         return int(
             features.lecture_absence_percent >= self.CRITICAL_ABSENCE_THRESHOLD
             or features.lab_absence_percent >= self.CRITICAL_ABSENCE_THRESHOLD
+            or features.avg_grade < self.CRITICAL_GRADE_THRESHOLD
         )
 
     # ------------------------------------------------------------------
@@ -169,29 +176,6 @@ class TargetCalculator:
             if features.semester_id
             != last_semester_by_student.get(features.student_id)
         ]
-
-    # ------------------------------------------------------------------
-    # Current-semester regression dataset
-    # ------------------------------------------------------------------
-
-    def build_training_dataset(
-        self,
-        semester_features: list[StudentSemesterFeatures],
-        all_semester_ids_ordered: list[int],
-    ) -> tuple[
-        list[StudentSemesterFeatures],
-        list[float],
-    ]:
-        """
-        Build dataset for the current-semester index model.
-
-        The target is calculated from the same semester, therefore
-        the student's last available semester is still valid.
-        """
-        X = semester_features
-        y = [self.calculate_target(features) for features in X]
-
-        return X, y
 
     # ------------------------------------------------------------------
     # Classification datasets
