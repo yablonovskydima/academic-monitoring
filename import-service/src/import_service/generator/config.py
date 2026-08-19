@@ -35,37 +35,45 @@ RISK_PROFILE_WEIGHTS = {
 RISK_PROFILE_SETTINGS = {
     "normal": {
         "absence_probability": 0.12,
+        "absence_probability_spread": 0.08,
         "score_mean": 75.0,
+        "score_mean_spread": 10.0,
         "score_stddev": 15.0,
         "late_submission_probability": 0.15,
     },
 
     "admission_risk": {
-        # Intentionally very high so that lecture/lab absence
-        # exceeds the 75% admission threshold in many cases.
         "absence_probability": 0.82,
+        "absence_probability_spread": 0.10,
         "score_mean": 62.0,
+        "score_mean_spread": 10.0,
         "score_stddev": 15.0,
         "late_submission_probability": 0.30,
     },
 
     "debt_risk": {
         "absence_probability": 0.30,
+        "absence_probability_spread": 0.10,
         "score_mean": 52.0,
+        "score_mean_spread": 10.0,
         "score_stddev": 18.0,
         "late_submission_probability": 0.35,
     },
 
     "expulsion_risk": {
         "absence_probability": 0.55,
+        "absence_probability_spread": 0.12,
         "score_mean": 48.0,
+        "score_mean_spread": 10.0,
         "score_stddev": 20.0,
         "late_submission_probability": 0.45,
     },
 
     "admission_and_expulsion_risk": {
         "absence_probability": 0.85,
+        "absence_probability_spread": 0.10,
         "score_mean": 45.0,
+        "score_mean_spread": 10.0,
         "score_stddev": 20.0,
         "late_submission_probability": 0.50,
     },
@@ -183,6 +191,9 @@ ABSENCE_PROBABILITY = {
 }
 
 WORKED_OFF_PROBABILITY_IF_ABSENT = 0.4
+
+SEMESTER_SCORE_DRIFT_STDDEV = 5.0
+SEMESTER_ABSENCE_DRIFT_STDDEV = 0.05
 
 
 # ---------- grades ----------

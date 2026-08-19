@@ -25,20 +25,40 @@ def _get_profile_settings(student: dict) -> dict:
     return config.RISK_PROFILE_SETTINGS[profile]
 
 
-def _get_absence_probability(student: dict) -> float:
+def _get_semester_absence_probability(
+    student: dict,
+    semester_id: int,
+    cache: dict[tuple[int, int], float],
+) -> float:
     if student["study_mode"] != "full_time":
         return config.ABSENCE_PROBABILITY[student["study_mode"]]
 
-    return _get_profile_settings(student)["absence_probability"]
+    key = (student["id"], semester_id)
+
+    if key not in cache:
+        cache[key] = min(1.0, max(0.0, random.gauss(
+            student["risk_absence_probability"],
+            config.SEMESTER_ABSENCE_DRIFT_STDDEV,
+        )))
+
+    return cache[key]
 
 
-def _get_score_parameters(student: dict) -> tuple[float, float]:
+def _get_semester_score_parameters(
+    student: dict,
+    semester_id: int,
+    cache: dict[tuple[int, int], float],
+) -> tuple[float, float]:
     settings = _get_profile_settings(student)
+    key = (student["id"], semester_id)
 
-    return (
-        settings["score_mean"],
-        settings["score_stddev"],
-    )
+    if key not in cache:
+        cache[key] = min(100.0, max(0.0, random.gauss(
+            student["risk_score_mean"],
+            config.SEMESTER_SCORE_DRIFT_STDDEV,
+        )))
+
+    return cache[key], settings["score_stddev"]
 
 
 def _get_late_submission_probability(student: dict) -> float:
@@ -98,6 +118,18 @@ def generate_students(groups: list[dict]) -> list[dict]:
                 elif risk_profile == "admission_and_expulsion_risk":
                     risk_profile = "expulsion_risk"
 
+            settings = config.RISK_PROFILE_SETTINGS[risk_profile]
+
+            risk_score_mean = min(100.0, max(0.0, random.gauss(
+                settings["score_mean"],
+                settings["score_mean_spread"],
+            )))
+
+            risk_absence_probability = min(1.0, max(0.0, random.gauss(
+                settings["absence_probability"],
+                settings["absence_probability_spread"],
+            )))
+
             students.append({
                 "id": student_id,
                 "full_name": fake.name(),
@@ -105,6 +137,8 @@ def generate_students(groups: list[dict]) -> list[dict]:
                 "email": fake.unique.email(),
                 "study_mode": study_mode,
                 "risk_profile": risk_profile,
+                "risk_score_mean": risk_score_mean,
+                "risk_absence_probability": risk_absence_probability,
             })
 
             student_id += 1
@@ -453,8 +487,10 @@ def generate_attendance(
     enrollments: list[dict],
     sessions_by_offering: dict[int, list[dict]],
     students_by_id: dict[int, dict],
+    semester_id_by_offering: dict[int, int],
 ) -> list[dict]:
     attendance = []
+    drift_cache: dict[tuple[int, int], float] = {}
 
     for enrollment in enrollments:
         student = students_by_id[enrollment["student_id"]]
@@ -470,7 +506,10 @@ def generate_attendance(
             if session["session_type"] in ("lecture", "lab", "control")
         ]
 
-        absence_probability = _get_absence_probability(student)
+        semester_id = semester_id_by_offering[enrollment["subject_offering_id"]]
+        absence_probability = _get_semester_absence_probability(
+            student, semester_id, drift_cache,
+        )
 
         is_excused_by_default = (
             student["study_mode"] != "full_time"
@@ -507,8 +546,10 @@ def generate_grades(
     enrollments: list[dict],
     sessions_by_offering: dict[int, list[dict]],
     students_by_id: dict[int, dict],
+    semester_id_by_offering: dict[int, int],
 ) -> list[dict]:
     grades = []
+    drift_cache: dict[tuple[int, int], float] = {}
 
     for enrollment in enrollments:
         student = students_by_id[enrollment["student_id"]]
@@ -539,7 +580,10 @@ def generate_grades(
             if session["session_type"] == "exam"
         ]
 
-        score_mean, score_stddev = _get_score_parameters(student)
+        semester_id = semester_id_by_offering[enrollment["subject_offering_id"]]
+        score_mean, score_stddev = _get_semester_score_parameters(
+            student, semester_id, drift_cache,
+        )
         late_probability = _get_late_submission_probability(student)
 
         # ---------------------------------------------------------------
@@ -762,11 +806,13 @@ def write_csv(
 
     output_rows = []
 
+    internal_fields = {"risk_profile", "risk_score_mean", "risk_absence_probability"}
+
     for row in rows:
         output_rows.append({
             key: value
             for key, value in row.items()
-            if key != "risk_profile"
+            if key not in internal_fields
         })
 
     with open(
@@ -881,10 +927,16 @@ def run_generate():
         for student in students
     }
 
+    semester_id_by_offering = {
+        offering["id"]: offering["semester_id"]
+        for offering in offerings
+    }
+
     attendance = generate_attendance(
         enrollments,
         sessions_by_offering,
         students_by_id,
+        semester_id_by_offering,
     )
 
     write_csv(
@@ -896,6 +948,7 @@ def run_generate():
         enrollments,
         sessions_by_offering,
         students_by_id,
+        semester_id_by_offering,
     )
 
     write_csv(
