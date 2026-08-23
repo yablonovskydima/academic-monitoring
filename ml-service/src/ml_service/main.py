@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from ml_service.controllers import health, training, inference, student_indexes, model_versions
+from ml_service.config import ML_SERVICE_PORT
 from ml_service.database import init_db
 
 
@@ -24,7 +25,7 @@ def health():
 
 
 def run():
-    uvicorn.run("ml_service.main:app", host="0.0.0.0", port=8002, reload=True)
+    uvicorn.run("ml_service.main:app", host="0.0.0.0", port=ML_SERVICE_PORT, reload=True)
 
 
 if __name__ == "__main__":

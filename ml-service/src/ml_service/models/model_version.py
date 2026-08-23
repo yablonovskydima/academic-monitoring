@@ -2,7 +2,7 @@ import enum
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Date, JSON, Boolean, Enum as SAEnum
+from sqlalchemy import String, Date, JSON, Boolean, Enum as SAEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ml_service.database import Base
@@ -22,6 +22,9 @@ class ModelPurpose(str, enum.Enum):
 
 class ModelVersion(Base):
     __tablename__ = "model_versions"
+    __table_args__ = (
+        UniqueConstraint("purpose", "version_label", name="uq_model_version_purpose_label"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     version_label: Mapped[str] = mapped_column(String(50))

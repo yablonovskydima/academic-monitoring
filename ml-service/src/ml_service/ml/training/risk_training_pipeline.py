@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from ml_service.services.model_version_service import ModelVersionService
-from ml_service.schemas.model_version import ModelVersionCreate
-from ml_service.models.model_version import ModelVersion, ModelPurpose
+from ml_service.services.model_promotion_service import ModelPromotionService, PromotionResult
+from ml_service.models.model_version import ModelPurpose
 
 RISK_CONFIGS = [
     (ModelPurpose.expulsion_classifier, "calculate_expulsion_label", False),
@@ -18,23 +17,22 @@ class RiskTrainingPipeline:
         feature_encoder,
         risk_trainer,
         model_persistence,
-        model_version_service: ModelVersionService,
+        promotion_service: ModelPromotionService,
     ):
         self.target_calculator = target_calculator
         self.feature_encoder = feature_encoder
         self.risk_trainer = risk_trainer
         self.model_persistence = model_persistence
-        self.model_version_service = model_version_service
+        self.promotion_service = promotion_service
 
     def train_all(
         self,
         semester_features,
         all_semester_ids_ordered,
-        version_label: str,
         training_data_from,
         training_data_to,
-    ) -> dict[str, ModelVersion]:
-        results: dict[str, ModelVersion] = {}
+    ) -> dict[str, PromotionResult]:
+        results: dict[str, PromotionResult] = {}
 
         for purpose, label_method_name, requires_next_semester in RISK_CONFIGS:
             label_fn = getattr(self.target_calculator, label_method_name)
@@ -58,20 +56,19 @@ class RiskTrainingPipeline:
 
             X_encoded = self.feature_encoder.encode(X_raw)
             result = self.risk_trainer.train(X_encoded, y)
+
+            version_label = self.promotion_service.next_version_label(purpose)
             model_file_path = self.model_persistence.save(result.model, f"{purpose.value}_{version_label}")
 
-            results[purpose.value] = self.model_version_service.create(
-                ModelVersionCreate(
-                    version_label=version_label,
-                    algorithm="XGBClassifier",
-                    purpose=purpose,
-                    trained_at=datetime.utcnow(),
-                    training_data_from=training_data_from,
-                    training_data_to=training_data_to,
-                    metrics=result.metrics,
-                    model_file_path=model_file_path,
-                    is_active=True,
-                )
+            results[purpose.value] = self.promotion_service.register(
+                purpose=purpose,
+                version_label=version_label,
+                algorithm="XGBClassifier",
+                trained_at=datetime.utcnow(),
+                training_data_from=training_data_from,
+                training_data_to=training_data_to,
+                metrics=result.metrics,
+                model_file_path=model_file_path,
             )
 
         return results

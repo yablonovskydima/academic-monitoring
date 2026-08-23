@@ -25,3 +25,8 @@ class ModelPersistence:
 
     def load(self, model_file_path: str) -> ModelType:
         return joblib.load(model_file_path)
+
+    def delete(self, model_file_path: str) -> None:
+        path = Path(model_file_path)
+        if path.exists():
+            path.unlink()

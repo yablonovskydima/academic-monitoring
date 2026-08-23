@@ -92,6 +92,36 @@ class StudentSemesterFeaturesService:
                     disappeared_next_semester = False
                     repeated_subjects_count = 0
 
+                prev_semester_idx = ordered_semester_ids.index(semester_id) - 1
+                if prev_semester_idx >= 0 and ordered_semester_ids[prev_semester_idx] in student_semesters:
+                    prev_key = (student_id, ordered_semester_ids[prev_semester_idx])
+                    prev_g_stats = grade_stats.get(prev_key, {})
+                    prev_att = attendance.get(prev_key, {})
+                    prev_expected = expected_sessions.get(prev_key, {})
+                    prev_graded = graded_sessions.get(prev_key, {})
+
+                    prev_total_sessions = prev_att.get("total_sessions", 0) or 0
+                    prev_absences_count = prev_att.get("absences_count", 0) or 0
+                    prev_absence_percent = (
+                        prev_absences_count / prev_total_sessions * 100
+                        if prev_total_sessions else 0.0
+                    )
+
+                    prev_total_gradable = prev_expected.get("total_gradable_sessions", 0) or 0
+                    prev_graded_count = prev_graded.get("graded_sessions_count", 0) or 0
+                    prev_missing_submissions_count = max(0, prev_total_gradable - prev_graded_count)
+
+                    avg_grade_delta = round(
+                        float(g_stats.get("avg_grade") or 0.0) - float(prev_g_stats.get("avg_grade") or 0.0),
+                        2,
+                    )
+                    absence_percent_delta = round(absence_percent - prev_absence_percent, 2)
+                    missing_submissions_delta = missing_submissions_count - prev_missing_submissions_count
+                else:
+                    avg_grade_delta = 0.0
+                    absence_percent_delta = 0.0
+                    missing_submissions_delta = 0
+
                 result.append(StudentSemesterFeatures(
                     student_id=student_id,
                     semester_id=semester_id,
@@ -118,6 +148,10 @@ class StudentSemesterFeaturesService:
 
                     disappeared_next_semester=disappeared_next_semester,
                     repeated_subjects_count=repeated_subjects_count,
+
+                    avg_grade_delta=avg_grade_delta,
+                    absence_percent_delta=absence_percent_delta,
+                    missing_submissions_delta=missing_submissions_delta,
                 ))
 
         return result

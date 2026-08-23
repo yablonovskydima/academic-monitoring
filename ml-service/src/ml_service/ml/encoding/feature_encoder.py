@@ -16,6 +16,9 @@ FEATURE_COLUMNS = [
     "study_mode_full_time",
     "study_mode_part_time",
     "study_mode_individual_schedule",
+    "avg_grade_delta",
+    "absence_percent_delta",
+    "missing_submissions_delta",
 ]
 
 
@@ -27,6 +30,7 @@ class FeatureEncoder:
 
     def _encode_one(self, f: StudentSemesterFeatures | StudentFeaturesRaw) -> dict:
         avg_grade = f.avg_grade_overall if isinstance(f, StudentFeaturesRaw) else f.avg_grade
+        is_raw = isinstance(f, StudentFeaturesRaw)
 
         return {
             "avg_grade": avg_grade,
@@ -41,4 +45,7 @@ class FeatureEncoder:
             "study_mode_full_time": 1 if f.study_mode == "full_time" else 0,
             "study_mode_part_time": 1 if f.study_mode == "part_time" else 0,
             "study_mode_individual_schedule": 1 if f.study_mode == "individual_schedule" else 0,
+            "avg_grade_delta": 0.0 if is_raw else f.avg_grade_delta,
+            "absence_percent_delta": 0.0 if is_raw else f.absence_percent_delta,
+            "missing_submissions_delta": 0 if is_raw else f.missing_submissions_delta,
         }

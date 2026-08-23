@@ -7,6 +7,7 @@ from import_service.controllers import (
     students, groups, teachers, semesters, subjects,
     subject_offerings, class_sessions, student_features,
 )
+from import_service.config import IMPORT_SERVICE_PORT
 from import_service.database import init_db
 
 @asynccontextmanager
@@ -30,7 +31,7 @@ def health():
 
 
 def run():
-    uvicorn.run("import_service.main:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("import_service.main:app", host="0.0.0.0", port=IMPORT_SERVICE_PORT, reload=True)
 
 
 if __name__ == "__main__":

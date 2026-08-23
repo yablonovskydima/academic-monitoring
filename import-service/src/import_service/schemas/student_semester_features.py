@@ -27,3 +27,7 @@ class StudentSemesterFeatures(BaseModel):
 
     disappeared_next_semester: bool
     repeated_subjects_count: int
+
+    avg_grade_delta: float
+    absence_percent_delta: float
+    missing_submissions_delta: int
