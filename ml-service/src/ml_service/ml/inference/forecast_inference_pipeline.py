@@ -51,7 +51,7 @@ class ForecastInferencePipeline:
         X_encoded = self.feature_encoder.encode(batch)
 
         predictions = {
-            purpose: model.predict(X_encoded)
+            purpose: model.predict(X_encoded[self.feature_encoder.columns_for(purpose)])
             for purpose, model in self._models.items()
         }
 

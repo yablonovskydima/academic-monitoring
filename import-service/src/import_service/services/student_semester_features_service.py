@@ -49,6 +49,13 @@ class StudentSemesterFeaturesService:
 
             student_semesters = semesters_by_student.get(student_id, set())
 
+            cum_grade_sum = 0.0
+            cum_total_sessions = 0
+            cum_absences_count = 0
+            cum_missing_submissions_sum = 0
+            cum_late_submissions_sum = 0
+            cum_semesters_count = 0
+
             for semester_id in ordered_semester_ids:
                 if semester_id not in student_semesters:
                     continue
@@ -122,6 +129,22 @@ class StudentSemesterFeaturesService:
                     absence_percent_delta = 0.0
                     missing_submissions_delta = 0
 
+                late_submissions_count = late.get("late_submissions_count", 0) or 0
+
+                cum_grade_sum += float(g_stats.get("avg_grade") or 0.0)
+                cum_total_sessions += total_sessions
+                cum_absences_count += absences_count
+                cum_missing_submissions_sum += missing_submissions_count
+                cum_late_submissions_sum += late_submissions_count
+                cum_semesters_count += 1
+
+                cumulative_avg_grade = round(cum_grade_sum / cum_semesters_count, 2)
+                cumulative_absence_percent = round(
+                    cum_absences_count / cum_total_sessions * 100 if cum_total_sessions else 0.0, 2,
+                )
+                cumulative_avg_missing_submissions = round(cum_missing_submissions_sum / cum_semesters_count, 2)
+                cumulative_avg_late_submissions = round(cum_late_submissions_sum / cum_semesters_count, 2)
+
                 result.append(StudentSemesterFeatures(
                     student_id=student_id,
                     semester_id=semester_id,
@@ -144,7 +167,7 @@ class StudentSemesterFeaturesService:
                     total_gradable_sessions=total_gradable,
                     graded_sessions_count=graded_count,
                     missing_submissions_count=missing_submissions_count,
-                    late_submissions_count=late.get("late_submissions_count", 0) or 0,
+                    late_submissions_count=late_submissions_count,
 
                     disappeared_next_semester=disappeared_next_semester,
                     repeated_subjects_count=repeated_subjects_count,
@@ -152,6 +175,12 @@ class StudentSemesterFeaturesService:
                     avg_grade_delta=avg_grade_delta,
                     absence_percent_delta=absence_percent_delta,
                     missing_submissions_delta=missing_submissions_delta,
+
+                    cumulative_avg_grade=cumulative_avg_grade,
+                    cumulative_absence_percent=cumulative_absence_percent,
+                    cumulative_avg_missing_submissions=cumulative_avg_missing_submissions,
+                    cumulative_avg_late_submissions=cumulative_avg_late_submissions,
+                    semesters_completed_count=cum_semesters_count,
                 ))
 
         return result

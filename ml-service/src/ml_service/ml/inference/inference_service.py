@@ -1,6 +1,5 @@
 import logging
 
-import httpx
 from sqlalchemy.orm import Session
 
 from ml_service.clients.import_service_client import ImportServiceClient
@@ -41,28 +40,24 @@ class InferenceService:
         )
 
     def calculate_all_indexes(self) -> int:
-        semester = self.import_client.get_current_semester()
+        semester_features = self.import_client.get_semester_features()
+        if not semester_features:
+            raise ValueError("No semester features received from import-service")
 
-        if semester is None:
-            logger.warning(
-                "No active semester found. "
-                "Using latest semester with data for inference."
-            )
-            semester = self.import_client.get_latest_semester_with_data()
+        latest_by_student = {}
+        for features in semester_features:
+            current = latest_by_student.get(features.student_id)
+            if current is None or features.semester_id > current.semester_id:
+                latest_by_student[features.student_id] = features
 
-        if semester is None or "id" not in semester:
-            raise ValueError("Could not determine semester for inference")
-
-        semester_id = semester["id"]
-
-        all_features = self.import_client.get_current_features()
+        all_features = list(latest_by_student.values())
 
         processed_count = 0
 
         for i in range(0, len(all_features), BATCH_SIZE):
             batch = all_features[i:i + BATCH_SIZE]
 
-            student_indexes = self.index_pipeline.process_batch(batch, semester_id)
+            student_indexes = self.index_pipeline.process_batch(batch)
 
             self.risk_pipeline.process_batch(batch, student_indexes)
 

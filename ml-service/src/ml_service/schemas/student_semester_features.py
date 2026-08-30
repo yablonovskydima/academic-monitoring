@@ -31,3 +31,9 @@ class StudentSemesterFeatures(BaseModel):
     avg_grade_delta: float
     absence_percent_delta: float
     missing_submissions_delta: int
+
+    cumulative_avg_grade: float
+    cumulative_absence_percent: float
+    cumulative_avg_missing_submissions: float
+    cumulative_avg_late_submissions: float
+    semesters_completed_count: int

@@ -37,6 +37,12 @@ class ModelPromotionService:
         existing = self.model_version_service.get_all_by_purpose(purpose)
         return f"v{len(existing) + 1}"
 
+    def load_active_model(self, purpose: ModelPurpose):
+        active = self.model_version_service.get_active_by_purpose(purpose)
+        if active is None:
+            return None
+        return self.model_persistence.load(active.model_file_path)
+
     def register(
         self,
         purpose: ModelPurpose,

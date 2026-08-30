@@ -51,10 +51,10 @@ class IndexInferencePipeline:
         self._model = self.model_persistence.load(self._active_version.model_file_path)
         self._explainer = shap.TreeExplainer(self._model)
 
-    def process_batch(self, batch, semester_id: int) -> list[StudentIndex]:
+    def process_batch(self, batch) -> list[StudentIndex]:
         self._ensure_loaded()
 
-        X_encoded = self.feature_encoder.encode(batch)
+        X_encoded = self.feature_encoder.encode(batch, purpose=ModelPurpose.index_regression)
         predictions = self._model.predict(X_encoded)
         shap_values = self._explainer.shap_values(X_encoded)
 
@@ -65,7 +65,7 @@ class IndexInferencePipeline:
 
             index_data_list.append(StudentIndexCreate(
                 student_id=features.student_id,
-                semester_id=semester_id,
+                semester_id=features.semester_id,
                 model_version_id=self._active_version.id,
                 index_value=index_value,
                 category=category,

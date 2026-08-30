@@ -49,7 +49,7 @@ class RiskInferencePipeline:
         X_encoded = self.feature_encoder.encode(batch)
 
         probabilities = {
-            purpose: model.predict_proba(X_encoded)[:, 1]
+            purpose: model.predict_proba(X_encoded[self.feature_encoder.columns_for(purpose)])[:, 1]
             for purpose, model in self._models.items()
         }
 
@@ -65,6 +65,4 @@ class RiskInferencePipeline:
                         model_version_id=self._versions[purpose].id,
                     ),
                 ))
-
-        # ОДИН bulk-виклик на весь батч (замість 500 окремих)
         self.risk_assessment_service.bulk_create_many(all_assessments)
