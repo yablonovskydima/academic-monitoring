@@ -29,3 +29,4 @@ ml-service/**/models/*.pkl
 
 data/
 ml-service/trained_models/*.pkl
+CLAUDE.md
