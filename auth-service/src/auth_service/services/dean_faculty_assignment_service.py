@@ -17,6 +17,9 @@ class DeanFacultyAssignmentService:
         self.audit_log_service = AuditLogService(db)
         self.import_client = import_client or ImportServiceClient()
 
+    def get_by_id(self, assignment_id: int) -> DeanFacultyAssignment | None:
+        return self.repo.get_by_id(assignment_id)
+
     def get_faculty_ids_for_user(self, user_id: int) -> list[int]:
         return [a.faculty_id for a in self.repo.get_by_user(user_id)]
 

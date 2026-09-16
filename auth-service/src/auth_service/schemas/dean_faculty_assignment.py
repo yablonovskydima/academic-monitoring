@@ -3,8 +3,9 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class DeanFacultyAssignmentCreate(BaseModel):
-    user_id: int
+class AssignDeanRequest(BaseModel):
+    # TODO(RBAC): this endpoint must be admin-only once role-based
+    dean_user_id: int
     faculty_id: int
 
 

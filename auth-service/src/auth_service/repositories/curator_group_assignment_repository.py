@@ -8,6 +8,9 @@ class CuratorGroupAssignmentRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def get_by_id(self, assignment_id: int) -> CuratorGroupAssignment | None:
+        return self.session.get(CuratorGroupAssignment, assignment_id)
+
     def get_by_user(self, user_id: int) -> list[CuratorGroupAssignment]:
         return list(self.session.scalars(
             select(CuratorGroupAssignment).where(CuratorGroupAssignment.user_id == user_id)

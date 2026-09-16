@@ -16,6 +16,9 @@ class CuratorGroupAssignmentService:
         self.audit_log_service = AuditLogService(db)
         self.import_client = import_client or ImportServiceClient()
 
+    def get_by_id(self, assignment_id: int) -> CuratorGroupAssignment | None:
+        return self.repo.get_by_id(assignment_id)
+
     def get_group_ids_for_user(self, user_id: int) -> list[int]:
         return [a.group_id for a in self.repo.get_by_user(user_id)]
 

@@ -8,6 +8,9 @@ class DeanFacultyAssignmentRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def get_by_id(self, assignment_id: int) -> DeanFacultyAssignment | None:
+        return self.session.get(DeanFacultyAssignment, assignment_id)
+
     def get_by_user(self, user_id: int) -> list[DeanFacultyAssignment]:
         return list(self.session.scalars(
             select(DeanFacultyAssignment).where(DeanFacultyAssignment.user_id == user_id)

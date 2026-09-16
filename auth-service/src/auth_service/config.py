@@ -12,6 +12,7 @@ if not IMPORT_SERVICE_URL:
     raise RuntimeError("IMPORT_SERVICE_URL is not set. Check your .env file.")
 
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "30"))
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 

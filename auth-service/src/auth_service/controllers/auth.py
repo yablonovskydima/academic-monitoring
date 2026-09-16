@@ -4,7 +4,16 @@ from sqlalchemy.orm import Session
 from auth_service.database import get_db
 from auth_service.dependencies import get_current_user
 from auth_service.models.user import User
-from auth_service.schemas.auth import LoginRequest, LogoutRequest, RefreshRequest, TokenPair, UserRegister
+from auth_service.schemas.auth import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    ResetPasswordRequest,
+    TokenPair,
+    UserRegister,
+)
 from auth_service.schemas.user import UserOut
 from auth_service.services.auth_service import AuthService
 
@@ -38,6 +47,40 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(data: LogoutRequest, db: Session = Depends(get_db)):
     AuthService(db).logout(data.refresh_token)
+
+
+@router.post("/revoke-all", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_all_sessions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    AuthService(db).revoke_all_sessions(current_user.id)
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        AuthService(db).change_password(current_user, data.current_password, data.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    AuthService(db).request_password_reset(data.login)
+    return {"detail": "If this account exists, a password reset has been requested."}
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    try:
+        AuthService(db).reset_password(data.token, data.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/me", response_model=UserOut)

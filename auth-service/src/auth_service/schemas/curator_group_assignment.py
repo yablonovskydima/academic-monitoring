@@ -3,8 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class CuratorGroupAssignmentCreate(BaseModel):
-    user_id: int
+class AssignGroupRequest(BaseModel):
     group_id: int
 
 

@@ -28,7 +28,7 @@ class Base(DeclarativeBase):
 
 def init_db() -> None:
     from auth_service.models import (
-        user, refresh_token, curator_group_assignment,
+        user, refresh_token, password_reset_token, curator_group_assignment,
         dean_faculty_assignment, audit_log,
     )
     Base.metadata.create_all(bind=engine)
