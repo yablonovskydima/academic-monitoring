@@ -5,12 +5,12 @@ class GroupOut(BaseModel):
 
     id: int
     name: str
-    faculty: str
+    faculty_id: int
     course_year: int
 
 class GroupCreate(BaseModel):
     name: str
-    faculty: str
+    faculty_id: int
     course_year: int
 
 
@@ -18,7 +18,7 @@ class GroupUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
-    faculty: str | None = None
+    faculty_id: int | None = None
     course_year: int | None = None
 
 

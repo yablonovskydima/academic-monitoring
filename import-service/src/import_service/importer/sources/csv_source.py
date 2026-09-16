@@ -14,6 +14,9 @@ class CsvSource(DataSource):
             reader = csv.DictReader(f)
             return list(reader)
 
+    def load_faculties(self) -> list[dict]:
+        return self._read_csv("faculties.csv")
+
     def load_groups(self) -> list[dict]: #todo захардкоджено
         return self._read_csv("groups.csv")
 

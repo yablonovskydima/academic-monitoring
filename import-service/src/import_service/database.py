@@ -29,7 +29,7 @@ class Base(DeclarativeBase):
 
 def init_db() -> None:
     from import_service.models import (  # noqa: F401
-        group, student, teacher, semester, subject,
+        faculty, group, student, teacher, semester, subject,
         subject_offering, enrollment, class_session, attendance, grade,
     )
     Base.metadata.create_all(bind=engine)

@@ -22,8 +22,10 @@ from import_service.services.semester_service import SemesterService
 from import_service.services.student_service import StudentService
 from import_service.importer.utils.chunking import chunked
 
+from import_service.schemas.faculty import FacultyCreate
 from import_service.schemas.group import GroupCreate
 from import_service.schemas.student import StudentCreate
+from import_service.services.faculty_service import FacultyService
 
 from import_service.models.student import StudyMode
 from import_service.services.subject_offering_service import SubjectOfferingService
@@ -45,9 +47,24 @@ def _bulk_import(service, data: list, chunk_size: int = CHUNK_SIZE, label: str =
             print(f"  {label}: {len(created)}/{total}")
     return created
 
-def import_groups(db: Session, source: DataSource) -> dict[int, int]:
+def import_faculties(db: Session, source: DataSource) -> dict[int, int]:
+    rows = source.load_faculties()
+    data = [FacultyCreate(name=r["name"]) for r in rows]
+    created = _bulk_import(FacultyService(db), data, label="faculties")
+    print(f"Imported {len(created)} faculties")
+    return _build_id_map(rows, created)
+
+
+def import_groups(db: Session, source: DataSource, faculty_map: dict[int, int]) -> dict[int, int]:
     rows = source.load_groups()
-    data = [GroupCreate(name=r["name"], faculty=r["faculty"], course_year=int(r["course_year"])) for r in rows]
+    data = [
+        GroupCreate(
+            name=r["name"],
+            faculty_id=faculty_map[int(r["faculty_id"])],
+            course_year=int(r["course_year"]),
+        )
+        for r in rows
+    ]
     created = _bulk_import(GroupService(db), data, label="groups")
     print(f"Imported {len(created)} groups")
     return _build_id_map(rows, created)
@@ -195,7 +212,8 @@ def import_grades(
 def run_import(source: DataSource):
     db = SessionLocal()
     try:
-        group_map = import_groups(db, source)
+        faculty_map = import_faculties(db, source)
+        group_map = import_groups(db, source, faculty_map)
         student_map = import_students(db, source, group_map)
         semester_map = import_semesters(db, source)
         teacher_map = import_teachers(db, source)

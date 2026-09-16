@@ -69,14 +69,22 @@ def _get_late_submission_probability(student: dict) -> float:
 # Groups / students
 # ---------------------------------------------------------------------------
 
-def generate_groups() -> list[dict]:
+def generate_faculties() -> list[dict]:
+    return [
+        {"id": i + 1, "name": name}
+        for i, name in enumerate(config.FACULTIES)
+    ]
+
+
+def generate_groups(faculties: list[dict]) -> list[dict]:
     groups = []
+    faculty_ids = [f["id"] for f in faculties]
 
     for i in range(config.GROUPS_COUNT):
         groups.append({
             "id": i + 1,
             "name": f"CS-{20 + i}",
-            "faculty": config.FACULTY,
+            "faculty_id": random.choice(faculty_ids),
             "course_year": random.randint(1, 4),
         })
 
@@ -839,7 +847,13 @@ def write_csv(
 # ---------------------------------------------------------------------------
 
 def run_generate():
-    groups = generate_groups()
+    faculties = generate_faculties()
+    write_csv(
+        faculties,
+        "faculties.csv",
+    )
+
+    groups = generate_groups(faculties)
     write_csv(
         groups,
         "groups.csv",

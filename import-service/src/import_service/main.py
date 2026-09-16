@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from import_service.controllers import (
     students, groups, teachers, semesters, subjects,
-    subject_offerings, class_sessions, student_features,
+    subject_offerings, class_sessions, student_features, faculties,
 )
 from import_service.config import IMPORT_SERVICE_PORT
 from import_service.database import init_db
@@ -16,6 +16,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Import Service", lifespan=lifespan)
+app.include_router(faculties.router)
 app.include_router(students.router)
 app.include_router(groups.router)
 app.include_router(teachers.router)

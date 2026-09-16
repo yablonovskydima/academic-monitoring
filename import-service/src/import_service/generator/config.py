@@ -7,7 +7,7 @@ DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 GROUPS_COUNT = 80
 STUDENTS_PER_GROUP = 25
-FACULTY = "Computer Science"
+FACULTIES = ["Computer Science"]
 
 STUDY_MODE_WEIGHTS = {
     "full_time": 0.85,
