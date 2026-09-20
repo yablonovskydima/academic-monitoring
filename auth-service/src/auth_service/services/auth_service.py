@@ -6,6 +6,8 @@ from auth_service.schemas.auth import LoginRequest, TokenPair, UserRegister
 from auth_service.schemas.user import UserCreate
 from auth_service.security import create_access_token, verify_password
 from auth_service.services.audit_log_service import AuditLogService
+from auth_service.services.curator_group_assignment_service import CuratorGroupAssignmentService
+from auth_service.services.dean_faculty_assignment_service import DeanFacultyAssignmentService
 from auth_service.services.password_reset_token_service import PasswordResetTokenService
 from auth_service.services.refresh_token_service import RefreshTokenService
 from auth_service.services.user_service import UserService
@@ -19,6 +21,8 @@ class AuthService:
         self.refresh_token_service = RefreshTokenService(db)
         self.password_reset_token_service = PasswordResetTokenService(db)
         self.audit_log_service = AuditLogService(db)
+        self.curator_group_assignment_service = CuratorGroupAssignmentService(db)
+        self.dean_faculty_assignment_service = DeanFacultyAssignmentService(db)
 
     def register(self, data: UserRegister) -> User:
         if self.user_service.get_by_email(data.email) is not None:
@@ -129,7 +133,10 @@ class AuthService:
         ))
 
     def _issue_pair(self, user: User) -> TokenPair:
-        access_token = create_access_token(user.id, user.role.value)
+        group_ids = self.curator_group_assignment_service.get_group_ids_for_user(user.id)
+        faculty_ids = self.dean_faculty_assignment_service.get_faculty_ids_for_user(user.id)
+
+        access_token = create_access_token(user.id, user.role.value, group_ids, faculty_ids)
         issued_refresh = self.refresh_token_service.issue(user.id)
 
         return TokenPair(

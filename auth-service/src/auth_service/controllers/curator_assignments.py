@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from auth_service.database import get_db
-from auth_service.dependencies import get_current_user
-from auth_service.models.user import User
+from auth_service.dependencies import require_role
+from auth_service.models.user import User, UserRoleEnum
 from auth_service.schemas.curator_group_assignment import AssignGroupRequest, CuratorGroupAssignmentOut
 from auth_service.services.curator_group_assignment_service import CuratorGroupAssignmentService
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/curator-assignments", tags=["curator_assignments"])
 @router.post("/", response_model=CuratorGroupAssignmentOut, status_code=status.HTTP_201_CREATED)
 def assign_self_to_group(
     data: AssignGroupRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRoleEnum.curator)),
     db: Session = Depends(get_db),
 ):
     try:
@@ -24,7 +24,7 @@ def assign_self_to_group(
 
 @router.get("/me", response_model=list[int])
 def get_my_groups(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRoleEnum.curator)),
     db: Session = Depends(get_db),
 ):
     return CuratorGroupAssignmentService(db).get_group_ids_for_user(current_user.id)
@@ -33,7 +33,7 @@ def get_my_groups(
 @router.delete("/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_assignment(
     assignment_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRoleEnum.curator)),
     db: Session = Depends(get_db),
 ):
     service = CuratorGroupAssignmentService(db)
