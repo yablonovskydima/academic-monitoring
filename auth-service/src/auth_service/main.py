@@ -4,15 +4,23 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from auth_service.bootstrap import bootstrap_admin
 from auth_service.config import AUTH_SERVICE_PORT
 from auth_service.controllers import auth, audit_log, curator_assignments, dean_assignments, users
-from auth_service.database import init_db
+from auth_service.database import SessionLocal, init_db
 from auth_service.rate_limit import RateLimitExceeded
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+
+    db = SessionLocal()
+    try:
+        bootstrap_admin(db)
+    finally:
+        db.close()
+
     yield
 
 app = FastAPI(title="Auth Service", lifespan=lifespan)

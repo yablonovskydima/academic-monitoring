@@ -4,7 +4,9 @@ Identity, authentication, and role/scope assignment for the academic-monitoring 
 
 ## Roles
 
-One role per user (`UserRoleEnum` / `auth_shared.Role`): `admin`, `dean`, `curator`. Public self-registration (`/auth/register`) always creates a `curator` — elevated roles are only ever set by an admin (see `UserService.create`'s `role` field, used directly, not through `/auth/register`). There is currently no bootstrap path for the very first admin — it has to be inserted directly (e.g. via `UserService.create(..., role=UserRoleEnum.admin)` from a shell), since every admin-granting endpoint is itself admin-only.
+One role per user (`UserRoleEnum` / `auth_shared.Role`): `admin`, `dean`, `curator`. Public self-registration (`/auth/register`) always creates a `curator` — elevated roles are only ever set by an admin (see `UserService.create`'s `role` field, used directly, not through `/auth/register`).
+
+Every admin-granting endpoint is itself admin-only, so the very first admin can't come from the API — `bootstrap.py`'s `bootstrap_admin()` runs on every app startup (from `main.py`'s `lifespan`, right after `init_db()`) and creates one directly in the database if `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD` are set. It's idempotent — if a user with that email already exists (admin or otherwise), it's left untouched and returned as-is, so this is safe to leave configured across every restart. Unset either variable and it's a no-op.
 
 - **curator** — self-assigns to groups they oversee (`/curator-assignments`), scoped by ownership on delete.
 - **dean** — assigned to a faculty by an admin (`/dean-assignments`), not self-service — a dean's scope is a whole faculty, which warrants more oversight than a curator claiming a group they already know is theirs. Can read their own faculty list; admin can read anyone's.
@@ -46,6 +48,7 @@ FastAPI + SQLAlchemy + PostgreSQL + `auth-shared` (JWT verification) + `bcrypt` 
    - `JWT_SECRET_KEY` (required), `JWT_ALGORITHM` (default `HS256`), `ACCESS_TOKEN_EXPIRE_MINUTES` (default `15`)
    - `REFRESH_TOKEN_EXPIRE_DAYS` (default `30`), `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES` (default `30`)
    - `RATE_LIMIT_WINDOW_SECONDS` (default `60`), `RATE_LIMIT_UNAUTHENTICATED_MAX` (default `10`), `RATE_LIMIT_AUTHENTICATED_MAX` (default `60`) — see Rate limiting above
+   - `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD` (both unset by default — bootstrap is skipped), `INITIAL_ADMIN_FIRST_NAME` / `INITIAL_ADMIN_LAST_NAME` (default `Admin`/`Admin`) — see Roles above
 3. Install dependencies (from the repo root, `uv` workspace):
    ```bash
    uv sync --all-packages
@@ -84,6 +87,7 @@ No live database needed: `conftest.py` overrides `get_db` with a fresh in-memory
 - `test_rbac.py` — every role-gated endpoint: correct role succeeds, wrong role gets 403, ownership checks (curator assignment delete, dean self-vs-other faculty read) are enforced.
 - `test_deactivation_revokes_access.py` — the scenario the RBAC security review was about: a user (including an admin) deactivated mid-session loses access on their very next request, even though their access token hasn't expired yet.
 - `test_rate_limit.py` — `InMemoryRateLimiter` unit tests (limit enforcement, `retry_after` value, window reset, per-key isolation, `reset()`) with an injected fake clock, plus HTTP-level tests that an anonymous caller gets blocked with a `429` + `Retry-After` after `RATE_LIMIT_UNAUTHENTICATED_MAX` requests, and that an authenticated caller isn't affected by that same IP bucket.
+- `test_bootstrap.py` — `bootstrap_admin()` is a no-op without env vars, creates an admin when configured, is idempotent on repeat calls, and doesn't touch an existing non-admin user that already holds the configured email.
 
 ### Known gaps (not covered by the above, flagged during the security review, not yet fixed)
 
