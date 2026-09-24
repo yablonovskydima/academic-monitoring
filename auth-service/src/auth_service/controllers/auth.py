@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from auth_service.database import get_db
 from auth_service.dependencies import get_current_user
 from auth_service.models.user import User
+from auth_service.rate_limit import rate_limit
 from auth_service.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -17,7 +18,7 @@ from auth_service.schemas.auth import (
 from auth_service.schemas.user import UserOut
 from auth_service.services.auth_service import AuthService
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(rate_limit)])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)

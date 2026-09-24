@@ -18,6 +18,17 @@ Stateless short-lived access tokens (JWT, ~15 min, see `auth-shared`) + stateful
 
 Every sensitive action writes to `audit_log` — see `models/audit_log.py`'s docstring and the root `CLAUDE.md` before adding business logic that reads sensitive data or changes another user's access.
 
+## Rate limiting
+
+Every `/auth/*` endpoint (see `rate_limit.py`) is behind an in-memory, fixed-window rate limiter, keyed differently depending on the caller:
+
+- **No valid access token** (register, login, refresh, logout, forgot/reset-password — the truly public, brute-forceable surface) — limited per client IP, `RATE_LIMIT_UNAUTHENTICATED_MAX` requests per `RATE_LIMIT_WINDOW_SECONDS` (default `10`/`60s`).
+- **Valid access token** (`/me`, `/revoke-all`, `/change-password`, or any `/auth/*` call made with a still-valid token) — limited per `user_id` instead of per IP, `RATE_LIMIT_AUTHENTICATED_MAX` requests per window (default `60`/`60s`) — deliberately more generous, since a known authenticated caller isn't the brute-force threat this exists to stop.
+
+Exceeding the limit raises `RateLimitExceeded` (a custom exception, not a bare `HTTPException`), caught by a handler registered in `main.py` that returns `429` with a `Retry-After` header and a generic JSON body — no detail about which bucket or key tripped it.
+
+This is in-process, in-memory state — correct for a single instance, not shared across replicas. If/when this service runs behind more than one process, the bucket store needs to move to something shared (Redis, most likely) instead of `InMemoryRateLimiter`'s in-memory dict.
+
 ## Stack
 
 FastAPI + SQLAlchemy + PostgreSQL + `auth-shared` (JWT verification) + `bcrypt` (password hashing) + `httpx` (validates `group_id`/`faculty_id` against `import-service` before creating an assignment). Tests run against SQLite in-memory, not PostgreSQL — see Tests below.
@@ -34,6 +45,7 @@ FastAPI + SQLAlchemy + PostgreSQL + `auth-shared` (JWT verification) + `bcrypt` 
    - `AUTH_SERVICE_PORT` (default `8003`)
    - `JWT_SECRET_KEY` (required), `JWT_ALGORITHM` (default `HS256`), `ACCESS_TOKEN_EXPIRE_MINUTES` (default `15`)
    - `REFRESH_TOKEN_EXPIRE_DAYS` (default `30`), `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES` (default `30`)
+   - `RATE_LIMIT_WINDOW_SECONDS` (default `60`), `RATE_LIMIT_UNAUTHENTICATED_MAX` (default `10`), `RATE_LIMIT_AUTHENTICATED_MAX` (default `60`) — see Rate limiting above
 3. Install dependencies (from the repo root, `uv` workspace):
    ```bash
    uv sync --all-packages
@@ -71,10 +83,10 @@ No live database needed: `conftest.py` overrides `get_db` with a fresh in-memory
 - `test_auth_flow.py` — register, login (success/failure/inactive user), refresh rotation + reuse rejection, logout, revoke-all, change-password (+ session revocation), forgot/reset-password (+ token single-use), `/auth/me`.
 - `test_rbac.py` — every role-gated endpoint: correct role succeeds, wrong role gets 403, ownership checks (curator assignment delete, dean self-vs-other faculty read) are enforced.
 - `test_deactivation_revokes_access.py` — the scenario the RBAC security review was about: a user (including an admin) deactivated mid-session loses access on their very next request, even though their access token hasn't expired yet.
+- `test_rate_limit.py` — `InMemoryRateLimiter` unit tests (limit enforcement, `retry_after` value, window reset, per-key isolation, `reset()`) with an injected fake clock, plus HTTP-level tests that an anonymous caller gets blocked with a `429` + `Retry-After` after `RATE_LIMIT_UNAUTHENTICATED_MAX` requests, and that an authenticated caller isn't affected by that same IP bucket.
 
 ### Known gaps (not covered by the above, flagged during the security review, not yet fixed)
 
-- No rate limiting or lockout on `/auth/login` — brute-forceable.
 - `UserService.authenticate` has a timing side-channel: an unknown login returns instantly, a known one with a wrong password waits on a real bcrypt check.
 - `/auth/register`'s 409 ("Email already registered") lets an attacker enumerate registered emails; `/auth/login` and `/auth/forgot-password` are already generic on purpose.
 - `UserService.set_active` doesn't stop an admin from deactivating themselves (or the last remaining admin).
