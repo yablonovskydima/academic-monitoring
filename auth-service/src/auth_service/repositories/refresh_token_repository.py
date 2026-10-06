@@ -15,6 +15,9 @@ class RefreshTokenRepository:
             select(RefreshToken).where(RefreshToken.token_hash == token_hash)
         ).first()
 
+    def get_by_id(self, token_id: int) -> RefreshToken | None:
+        return self.session.get(RefreshToken, token_id)
+
     def save(self, token: RefreshToken) -> RefreshToken:
         self.session.add(token)
         self.session.flush()

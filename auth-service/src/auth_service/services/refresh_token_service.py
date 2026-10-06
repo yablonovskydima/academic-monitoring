@@ -34,13 +34,19 @@ class RefreshTokenService:
 
     def get_valid(self, raw_token: str) -> RefreshToken | None:
         record = self.repo.get_by_hash(hash_token(raw_token))
+        return record if self._is_usable(record) else None
+
+    def is_session_active(self, session_id: int, user_id: int) -> bool:
+        record = self.repo.get_by_id(session_id)
+        return self._is_usable(record) and record.user_id == user_id
+
+    @staticmethod
+    def _is_usable(record: RefreshToken | None) -> bool:
         if record is None:
-            return None
+            return False
         if record.revoked_at is not None:
-            return None
-        if record.expires_at < datetime.utcnow():
-            return None
-        return record
+            return False
+        return record.expires_at >= datetime.utcnow()
 
     def revoke(self, raw_token: str) -> bool:
         record = self.repo.get_by_hash(hash_token(raw_token))

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from auth_service.database import get_db
 from auth_service.models.user import User, UserRoleEnum
+from auth_service.services.refresh_token_service import RefreshTokenService
 from auth_service.services.user_service import UserService
 
 _INVALID_TOKEN = HTTPException(
@@ -23,6 +24,9 @@ def get_current_user(
 ) -> User:
     user = UserService(db).get_by_id(claims.user_id)
     if user is None or not user.is_active:
+        raise _INVALID_TOKEN
+
+    if claims.session_id is None or not RefreshTokenService(db).is_session_active(claims.session_id, user.id):
         raise _INVALID_TOKEN
 
     return user

@@ -198,3 +198,33 @@ def test_me_returns_the_authenticated_user(client, db_session):
 def test_me_without_a_token_is_rejected(client):
     response = client.get("/auth/me")
     assert response.status_code in (401, 403)
+
+
+def test_refresh_invalidates_the_previous_access_token(client, db_session):
+    make_user(db_session, UserRoleEnum.curator, "sessionrefresh@example.com")
+    old = login(client, "sessionrefresh@example.com")
+
+    new = client.post("/auth/refresh", json={"refresh_token": old["refresh_token"]}).json()
+
+    assert client.get("/auth/me", headers=auth_headers(old["access_token"])).status_code == 401
+    assert client.get("/auth/me", headers=auth_headers(new["access_token"])).status_code == 200
+
+
+def test_logout_invalidates_the_access_token_of_that_session(client, db_session):
+    make_user(db_session, UserRoleEnum.curator, "sessionlogout@example.com")
+    tokens = login(client, "sessionlogout@example.com")
+
+    client.post("/auth/logout", json={"refresh_token": tokens["refresh_token"]})
+
+    assert client.get("/auth/me", headers=auth_headers(tokens["access_token"])).status_code == 401
+
+
+def test_revoke_all_invalidates_access_tokens_of_every_session(client, db_session):
+    make_user(db_session, UserRoleEnum.curator, "sessionall@example.com")
+    session_a = login(client, "sessionall@example.com")
+    session_b = login(client, "sessionall@example.com")
+
+    client.post("/auth/revoke-all", headers=auth_headers(session_a["access_token"]))
+
+    assert client.get("/auth/me", headers=auth_headers(session_a["access_token"])).status_code == 401
+    assert client.get("/auth/me", headers=auth_headers(session_b["access_token"])).status_code == 401

@@ -136,8 +136,10 @@ class AuthService:
         group_ids = self.curator_group_assignment_service.get_group_ids_for_user(user.id)
         faculty_ids = self.dean_faculty_assignment_service.get_faculty_ids_for_user(user.id)
 
-        access_token = create_access_token(user.id, user.role.value, group_ids, faculty_ids)
         issued_refresh = self.refresh_token_service.issue(user.id)
+        access_token = create_access_token(
+            user.id, user.role.value, group_ids, faculty_ids, session_id=issued_refresh.record.id,
+        )
 
         return TokenPair(
             access_token=access_token,

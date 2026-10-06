@@ -24,6 +24,7 @@ def create_access_token(
     role: str,
     group_ids: list[int] | None = None,
     faculty_ids: list[int] | None = None,
+    session_id: int | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
     payload = {
@@ -31,6 +32,7 @@ def create_access_token(
         "role": role,
         "group_ids": group_ids or [],
         "faculty_ids": faculty_ids or [],
+        "sid": session_id,
         "type": "access",
         "iat": now,
         "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
