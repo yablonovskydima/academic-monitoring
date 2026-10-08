@@ -14,7 +14,7 @@ from auth_service.models import (  # noqa: F401
     refresh_token,
     user,
 )
-from auth_service.rate_limit import reset_rate_limiter
+from auth_service.utils.rate_limit import reset_rate_limiter
 
 
 @pytest.fixture(autouse=True)

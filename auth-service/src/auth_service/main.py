@@ -5,10 +5,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from auth_service.bootstrap import bootstrap_admin
+from auth_service.clients.import_service_client import ImportServiceUnavailable
 from auth_service.config import AUTH_SERVICE_PORT
 from auth_service.controllers import auth, audit_log, curator_assignments, dean_assignments, users
 from auth_service.database import SessionLocal, init_db
-from auth_service.rate_limit import RateLimitExceeded
+from auth_service.utils.rate_limit import RateLimitExceeded
 
 
 @asynccontextmanager
@@ -29,6 +30,14 @@ app.include_router(users.router)
 app.include_router(curator_assignments.router)
 app.include_router(dean_assignments.router)
 app.include_router(audit_log.router)
+
+
+@app.exception_handler(ImportServiceUnavailable)
+def import_service_unavailable_handler(request: Request, exc: ImportServiceUnavailable) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Import service is currently unavailable. Please try again later."},
+    )
 
 
 @app.exception_handler(RateLimitExceeded)

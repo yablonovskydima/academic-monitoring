@@ -2,7 +2,7 @@ import pytest
 
 from auth_service.config import RATE_LIMIT_UNAUTHENTICATED_MAX
 from auth_service.models.user import UserRoleEnum
-from auth_service.rate_limit import InMemoryRateLimiter, RateLimitExceeded
+from auth_service.utils.rate_limit import InMemoryRateLimiter, RateLimitExceeded
 from helpers import auth_headers, login, make_user
 
 

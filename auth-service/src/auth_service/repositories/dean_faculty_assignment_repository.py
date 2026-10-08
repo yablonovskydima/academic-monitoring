@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from auth_service.models.dean_faculty_assignment import DeanFacultyAssignment
@@ -37,3 +37,7 @@ class DeanFacultyAssignmentRepository:
         self.session.delete(assignment)
         self.session.commit()
         return True
+
+    def delete_all_for_user(self, user_id: int) -> None:
+        self.session.execute(delete(DeanFacultyAssignment).where(DeanFacultyAssignment.user_id == user_id))
+        self.session.commit()

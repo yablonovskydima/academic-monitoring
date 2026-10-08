@@ -1,6 +1,6 @@
 import pytest
 
-from auth_service.validators import validate_login, validate_name, validate_password_strength
+from auth_service.utils.validators import validate_login, validate_name, validate_password_strength
 
 
 @pytest.mark.parametrize("value", ["Ivan", "O'Brien", "Anna-Maria", "Оксана"])

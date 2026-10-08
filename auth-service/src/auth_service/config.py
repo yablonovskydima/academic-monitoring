@@ -30,3 +30,8 @@ INITIAL_ADMIN_EMAIL = os.getenv("INITIAL_ADMIN_EMAIL")
 INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD")
 INITIAL_ADMIN_FIRST_NAME = os.getenv("INITIAL_ADMIN_FIRST_NAME", "Admin")
 INITIAL_ADMIN_LAST_NAME = os.getenv("INITIAL_ADMIN_LAST_NAME", "Admin")
+ALLOWED_EMAIL_DOMAINS = [
+    d.strip().lower()
+    for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "pnu.edu.ua,cnu.edu.ua").split(",")
+    if d.strip()
+]

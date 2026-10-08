@@ -3,47 +3,6 @@ from auth_service.services.password_reset_token_service import PasswordResetToke
 from helpers import PASSWORD, auth_headers, login, make_user
 
 
-def test_register_creates_a_curator(client):
-    response = client.post("/auth/register", json={
-        "first_name": "Petro",
-        "last_name": "Kovalenko",
-        "email": "petro@example.com",
-        "password": PASSWORD,
-        "confirm_password": PASSWORD,
-    })
-
-    assert response.status_code == 201, response.text
-    body = response.json()
-    assert body["role"] == "curator"
-    assert body["is_active"] is True
-
-
-def test_register_rejects_duplicate_email(client, db_session):
-    make_user(db_session, UserRoleEnum.curator, "taken@example.com")
-
-    response = client.post("/auth/register", json={
-        "first_name": "Petro",
-        "last_name": "Kovalenko",
-        "email": "taken@example.com",
-        "password": PASSWORD,
-        "confirm_password": PASSWORD,
-    })
-
-    assert response.status_code == 409
-
-
-def test_register_rejects_mismatched_passwords(client):
-    response = client.post("/auth/register", json={
-        "first_name": "Petro",
-        "last_name": "Kovalenko",
-        "email": "petro2@example.com",
-        "password": PASSWORD,
-        "confirm_password": "SomethingElse1!",
-    })
-
-    assert response.status_code == 422
-
-
 def test_login_with_correct_credentials_returns_token_pair(client, db_session):
     make_user(db_session, UserRoleEnum.curator, "curator@example.com")
 
@@ -228,3 +187,25 @@ def test_revoke_all_invalidates_access_tokens_of_every_session(client, db_sessio
 
     assert client.get("/auth/me", headers=auth_headers(session_a["access_token"])).status_code == 401
     assert client.get("/auth/me", headers=auth_headers(session_b["access_token"])).status_code == 401
+
+
+def test_failed_login_is_audited_with_the_client_ip(client, db_session):
+    make_user(db_session, UserRoleEnum.admin, "auditip@example.com")
+    admin_headers = auth_headers(login(client, "auditip@example.com")["access_token"])
+
+    client.post("/auth/login", json={"login": "ghostuser", "password": "WrongPass1!"})
+
+    entries = client.get("/audit-log/", headers=admin_headers).json()
+    failed = [e for e in entries if e["action"] == "login_failed"]
+    assert len(failed) == 1
+    assert failed[0]["details"] == {"login": "ghostuser", "ip": "testclient"}
+
+
+def test_forgot_password_sends_the_reset_token_through_notifications(client, db_session, capsys):
+    make_user(db_session, UserRoleEnum.curator, "forgetful@example.com")
+
+    client.post("/auth/forgot-password", json={"login": "forgetful"})
+
+    out = capsys.readouterr().out
+    assert "[password reset] to forgetful@example.com" in out
+    assert "token=" in out

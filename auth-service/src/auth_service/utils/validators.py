@@ -44,3 +44,12 @@ def validate_password_strength(value: str) -> str:
     if not _SPECIAL_CHAR_PATTERN.search(value):
         raise ValueError("must contain at least one special character")
     return value
+
+
+def validate_email_domain(value: str, allowed_domains: list[str]) -> str:
+    if not allowed_domains:
+        return value
+    domain = value.rsplit("@", 1)[-1].lower()
+    if domain not in allowed_domains:
+        raise ValueError(f"email domain must be one of: {', '.join(allowed_domains)}")
+    return value

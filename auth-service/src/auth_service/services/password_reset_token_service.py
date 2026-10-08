@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from auth_service.config import PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
 from auth_service.models.password_reset_token import PasswordResetToken
 from auth_service.repositories.password_reset_token_repository import PasswordResetTokenRepository
-from auth_service.security import hash_token
+from auth_service.utils.security import hash_token
 
 
 @dataclass

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from auth_service.config import REFRESH_TOKEN_EXPIRE_DAYS
 from auth_service.models.refresh_token import RefreshToken
 from auth_service.repositories.refresh_token_repository import RefreshTokenRepository
-from auth_service.security import hash_token
+from auth_service.utils.security import hash_token
 
 
 @dataclass

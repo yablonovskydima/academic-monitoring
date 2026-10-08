@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 
-from auth_service.models.user import User, UserRoleEnum
+from auth_service.models.user import User
+from auth_service.utils.notifications import send_password_reset
 from auth_service.schemas.audit_log import AuditLogCreate
-from auth_service.schemas.auth import LoginRequest, TokenPair, UserRegister
-from auth_service.schemas.user import UserCreate
-from auth_service.security import create_access_token, verify_password
+from auth_service.schemas.auth import LoginRequest, TokenPair
+from auth_service.utils.security import create_access_token, verify_password
 from auth_service.services.audit_log_service import AuditLogService
 from auth_service.services.curator_group_assignment_service import CuratorGroupAssignmentService
 from auth_service.services.dean_faculty_assignment_service import DeanFacultyAssignmentService
@@ -14,8 +14,6 @@ from auth_service.services.user_service import UserService
 
 
 class AuthService:
-    DEFAULT_REGISTRATION_ROLE = UserRoleEnum.curator
-
     def __init__(self, db: Session):
         self.user_service = UserService(db)
         self.refresh_token_service = RefreshTokenService(db)
@@ -24,31 +22,12 @@ class AuthService:
         self.curator_group_assignment_service = CuratorGroupAssignmentService(db)
         self.dean_faculty_assignment_service = DeanFacultyAssignmentService(db)
 
-    def register(self, data: UserRegister) -> User:
-        if self.user_service.get_by_email(data.email) is not None:
-            raise ValueError(f"Email {data.email} is already registered")
-
-        user = self.user_service.create(UserCreate(
-            first_name=data.first_name,
-            last_name=data.last_name,
-            email=data.email,
-            password=data.password,
-            role=self.DEFAULT_REGISTRATION_ROLE,
-        ))
-
-        self.audit_log_service.log(AuditLogCreate(
-            user_id=user.id,
-            action="user_registered",
-        ))
-
-        return user
-
-    def login(self, data: LoginRequest) -> TokenPair:
+    def login(self, data: LoginRequest, client_ip: str | None = None) -> TokenPair:
         user = self.user_service.authenticate(data.login, data.password)
         if user is None:
             self.audit_log_service.log(AuditLogCreate(
                 action="login_failed",
-                details={"login": data.login},
+                details={"login": data.login, "ip": client_ip},
             ))
             raise ValueError("Invalid login or password")
 
@@ -113,10 +92,7 @@ class AuthService:
 
         issued = self.password_reset_token_service.issue(user.id)
 
-        # TODO: send `issued.raw_token` via notification-service
-        # (email with a reset link) once that service exists. For
-        # now just log it so the flow is testable end-to-end locally.
-        print(f"[password reset] token for user {user.id} ({user.login}): {issued.raw_token}")
+        send_password_reset(user.email, user.login, issued.raw_token)
 
     def reset_password(self, raw_token: str, new_password: str) -> None:
         record = self.password_reset_token_service.get_valid(raw_token)

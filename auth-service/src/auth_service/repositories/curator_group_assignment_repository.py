@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from auth_service.models.curator_group_assignment import CuratorGroupAssignment
@@ -37,3 +37,7 @@ class CuratorGroupAssignmentRepository:
         self.session.delete(assignment)
         self.session.commit()
         return True
+
+    def delete_all_for_user(self, user_id: int) -> None:
+        self.session.execute(delete(CuratorGroupAssignment).where(CuratorGroupAssignment.user_id == user_id))
+        self.session.commit()
