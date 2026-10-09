@@ -54,18 +54,6 @@ def test_logout_revokes_the_refresh_token(client, db_session):
     assert reused.status_code == 401
 
 
-def test_revoke_all_sessions_invalidates_every_refresh_token(client, db_session):
-    make_user(db_session, UserRoleEnum.curator, "multi@example.com")
-    session_a = login(client, "multi@example.com")
-    session_b = login(client, "multi@example.com")
-
-    response = client.post("/auth/revoke-all", headers=auth_headers(session_a["access_token"]))
-    assert response.status_code == 204
-
-    reused = client.post("/auth/refresh", json={"refresh_token": session_b["refresh_token"]})
-    assert reused.status_code == 401
-
-
 def test_change_password_requires_correct_current_password(client, db_session):
     make_user(db_session, UserRoleEnum.curator, "change@example.com")
     tokens = login(client, "change@example.com")
@@ -178,7 +166,7 @@ def test_logout_invalidates_the_access_token_of_that_session(client, db_session)
     assert client.get("/auth/me", headers=auth_headers(tokens["access_token"])).status_code == 401
 
 
-def test_revoke_all_invalidates_access_tokens_of_every_session(client, db_session):
+def test_revoke_all_invalidates_every_session_of_the_user(client, db_session):
     make_user(db_session, UserRoleEnum.curator, "sessionall@example.com")
     session_a = login(client, "sessionall@example.com")
     session_b = login(client, "sessionall@example.com")
@@ -187,6 +175,7 @@ def test_revoke_all_invalidates_access_tokens_of_every_session(client, db_sessio
 
     assert client.get("/auth/me", headers=auth_headers(session_a["access_token"])).status_code == 401
     assert client.get("/auth/me", headers=auth_headers(session_b["access_token"])).status_code == 401
+    assert client.post("/auth/refresh", json={"refresh_token": session_b["refresh_token"]}).status_code == 401
 
 
 def test_failed_login_is_audited_with_the_client_ip(client, db_session):

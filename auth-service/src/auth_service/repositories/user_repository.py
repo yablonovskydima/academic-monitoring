@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from auth_service.models.user import User
+from auth_service.models.user import User, UserRoleEnum
 
 
 class UserRepository:
@@ -22,6 +22,20 @@ class UserRepository:
         return self.session.scalars(
             select(User).where(User.login == login)
         ).first()
+
+    def list(
+        self,
+        role: UserRoleEnum | None = None,
+        is_active: bool | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[User]:
+        query = select(User).order_by(User.id)
+        if role is not None:
+            query = query.where(User.role == role)
+        if is_active is not None:
+            query = query.where(User.is_active == is_active)
+        return list(self.session.scalars(query.limit(limit).offset(offset)).all())
 
     def get_all(self) -> list[User]:
         return list(self.session.scalars(select(User)).all())

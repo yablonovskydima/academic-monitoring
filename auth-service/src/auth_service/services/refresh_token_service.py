@@ -1,12 +1,13 @@
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
 from auth_service.config import REFRESH_TOKEN_EXPIRE_DAYS
 from auth_service.models.refresh_token import RefreshToken
 from auth_service.repositories.refresh_token_repository import RefreshTokenRepository
+from auth_service.utils.clock import utc_now
 from auth_service.utils.security import hash_token
 
 
@@ -26,7 +27,7 @@ class RefreshTokenService:
         record = RefreshToken(
             user_id=user_id,
             token_hash=hash_token(raw_token),
-            expires_at=datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+            expires_at=utc_now() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
         )
         self.repo.save(record)
 
@@ -46,7 +47,7 @@ class RefreshTokenService:
             return False
         if record.revoked_at is not None:
             return False
-        return record.expires_at >= datetime.utcnow()
+        return record.expires_at >= utc_now()
 
     def revoke(self, raw_token: str) -> bool:
         record = self.repo.get_by_hash(hash_token(raw_token))

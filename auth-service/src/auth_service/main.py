@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from auth_service.bootstrap import bootstrap_admin
@@ -9,7 +9,7 @@ from auth_service.clients.import_service_client import ImportServiceUnavailable
 from auth_service.config import AUTH_SERVICE_PORT
 from auth_service.controllers import auth, audit_log, curator_assignments, dean_assignments, users
 from auth_service.database import SessionLocal, init_db
-from auth_service.utils.rate_limit import RateLimitExceeded
+from auth_service.utils.rate_limit import RateLimitExceeded, rate_limit
 
 
 @asynccontextmanager
@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-app = FastAPI(title="Auth Service", lifespan=lifespan)
+app = FastAPI(title="Auth Service", lifespan=lifespan, dependencies=[Depends(rate_limit)])
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(curator_assignments.router)

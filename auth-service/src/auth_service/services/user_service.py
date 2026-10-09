@@ -1,8 +1,10 @@
+from auth_shared import AuthEvent
 from sqlalchemy.orm import Session
 
 from auth_service.models.user import User, UserRoleEnum
 from auth_service.repositories.curator_group_assignment_repository import CuratorGroupAssignmentRepository
 from auth_service.repositories.dean_faculty_assignment_repository import DeanFacultyAssignmentRepository
+from auth_service.repositories.password_reset_token_repository import PasswordResetTokenRepository
 from auth_service.repositories.refresh_token_repository import RefreshTokenRepository
 from auth_service.repositories.user_repository import UserRepository
 from auth_service.schemas.audit_log import AuditLogCreate
@@ -10,6 +12,7 @@ from auth_service.utils.notifications import send_account_credentials, send_logi
 from auth_service.schemas.user import UserCreate, UserUpdate
 from auth_service.utils.security import hash_password, verify_password
 from auth_service.services.audit_log_service import AuditLogService
+from auth_service.utils import events
 from auth_service.utils.validators import validate_login
 
 
@@ -17,6 +20,7 @@ class UserService:
     def __init__(self, db: Session):
         self.repo = UserRepository(db)
         self.refresh_token_repo = RefreshTokenRepository(db)
+        self.password_reset_token_repo = PasswordResetTokenRepository(db)
         self.curator_assignment_repo = CuratorGroupAssignmentRepository(db)
         self.dean_assignment_repo = DeanFacultyAssignmentRepository(db)
         self.audit_log_service = AuditLogService(db)
@@ -29,6 +33,15 @@ class UserService:
 
     def get_by_login(self, login: str) -> User | None:
         return self.repo.get_by_login(login)
+
+    def list_users(
+        self,
+        role: UserRoleEnum | None = None,
+        is_active: bool | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[User]:
+        return self.repo.list(role=role, is_active=is_active, limit=limit, offset=offset)
 
     def get_all(self) -> list[User]:
         return self.repo.get_all()
@@ -144,6 +157,9 @@ class UserService:
             target_id=target_user_id,
         ))
 
+        if not is_active:
+            events.publish_event(AuthEvent.user_deactivated, {"user_id": target_user_id})
+
         return user
 
     def set_role(self, actor_user_id: int, target_user_id: int, new_role: UserRoleEnum) -> User | None:
@@ -172,6 +188,13 @@ class UserService:
             details={"from": old_role.value, "to": new_role.value},
         ))
 
+        events.publish_event(AuthEvent.user_role_changed, {
+            "user_id": target_user_id,
+            "old_role": old_role.value,
+            "new_role": new_role.value,
+        })
+        events.publish_event(AuthEvent.session_revoked, {"user_id": target_user_id, "session_id": None})
+
         return user
 
     def set_password(self, user_id: int, new_password: str) -> User | None:
@@ -181,5 +204,36 @@ class UserService:
         user.hashed_password = hash_password(new_password)
         return self.repo.save(user)
 
-    def delete(self, user_id: int) -> bool:
-        return self.repo.delete(user_id)
+    def delete_user(self, actor_user_id: int, target_user_id: int) -> bool:
+        if actor_user_id == target_user_id:
+            raise ValueError("You cannot delete yourself")
+
+        user = self.repo.get_by_id(target_user_id)
+        if user is None:
+            return False
+
+        snapshot = {
+            "login": user.login,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role.value,
+        }
+
+        self.refresh_token_repo.delete_all_for_user(target_user_id)
+        self.password_reset_token_repo.delete_all_for_user(target_user_id)
+        self.curator_assignment_repo.delete_all_for_user(target_user_id)
+        self.dean_assignment_repo.delete_all_for_user(target_user_id)
+        self.repo.delete(target_user_id)
+
+        self.audit_log_service.log(AuditLogCreate(
+            user_id=actor_user_id,
+            action="user_deleted",
+            target_type="user",
+            target_id=target_user_id,
+            details=snapshot,
+        ))
+
+        events.publish_event(AuthEvent.user_deleted, {"user_id": target_user_id})
+
+        return True

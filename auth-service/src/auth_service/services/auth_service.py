@@ -1,3 +1,4 @@
+from auth_shared import AuthEvent, Claims
 from sqlalchemy.orm import Session
 
 from auth_service.models.user import User
@@ -11,6 +12,7 @@ from auth_service.services.dean_faculty_assignment_service import DeanFacultyAss
 from auth_service.services.password_reset_token_service import PasswordResetTokenService
 from auth_service.services.refresh_token_service import RefreshTokenService
 from auth_service.services.user_service import UserService
+from auth_service.utils import events
 
 
 class AuthService:
@@ -48,6 +50,7 @@ class AuthService:
             raise ValueError("Invalid or expired refresh token")
 
         self.refresh_token_service.revoke(raw_refresh_token)
+        events.publish_event(AuthEvent.session_revoked, {"user_id": user.id, "session_id": record.id})
 
         self.audit_log_service.log(AuditLogCreate(
             user_id=user.id,
@@ -59,6 +62,8 @@ class AuthService:
     def logout(self, raw_refresh_token: str) -> None:
         record = self.refresh_token_service.get_valid(raw_refresh_token)
         self.refresh_token_service.revoke(raw_refresh_token)
+        if record is not None:
+            events.publish_event(AuthEvent.session_revoked, {"user_id": record.user_id, "session_id": record.id})
 
         self.audit_log_service.log(AuditLogCreate(
             user_id=record.user_id if record else None,
@@ -67,6 +72,7 @@ class AuthService:
 
     def revoke_all_sessions(self, user_id: int) -> None:
         self.refresh_token_service.revoke_all_for_user(user_id)
+        events.publish_event(AuthEvent.session_revoked, {"user_id": user_id, "session_id": None})
 
         self.audit_log_service.log(AuditLogCreate(
             user_id=user_id,
@@ -79,6 +85,7 @@ class AuthService:
 
         self.user_service.set_password(user.id, new_password)
         self.refresh_token_service.revoke_all_for_user(user.id)
+        events.publish_event(AuthEvent.session_revoked, {"user_id": user.id, "session_id": None})
 
         self.audit_log_service.log(AuditLogCreate(
             user_id=user.id,
@@ -102,11 +109,21 @@ class AuthService:
         self.user_service.set_password(record.user_id, new_password)
         self.password_reset_token_service.mark_used(record.id)
         self.refresh_token_service.revoke_all_for_user(record.user_id)
+        events.publish_event(AuthEvent.session_revoked, {"user_id": record.user_id, "session_id": None})
 
         self.audit_log_service.log(AuditLogCreate(
             user_id=record.user_id,
             action="password_reset",
         ))
+
+    def claims_for(self, user: User, session_id: int | None) -> Claims:
+        return Claims(
+            user_id=user.id,
+            role=user.role.value,
+            group_ids=self.curator_group_assignment_service.get_group_ids_for_user(user.id),
+            faculty_ids=self.dean_faculty_assignment_service.get_faculty_ids_for_user(user.id),
+            session_id=session_id,
+        )
 
     def _issue_pair(self, user: User) -> TokenPair:
         group_ids = self.curator_group_assignment_service.get_group_ids_for_user(user.id)

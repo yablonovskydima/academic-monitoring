@@ -1,3 +1,4 @@
+from auth_shared import AuthEvent
 from sqlalchemy.orm import Session
 
 from auth_service.clients.import_service_client import ImportServiceClient
@@ -7,6 +8,7 @@ from auth_service.repositories.dean_faculty_assignment_repository import DeanFac
 from auth_service.schemas.audit_log import AuditLogCreate
 from auth_service.services.audit_log_service import AuditLogService
 from auth_service.services.user_service import UserService
+from auth_service.utils import events
 
 
 class DeanFacultyAssignmentService:
@@ -43,7 +45,27 @@ class DeanFacultyAssignmentService:
             details={"dean_user_id": dean_user_id},
         ))
 
+        events.publish_event(AuthEvent.user_scopes_changed, {"user_id": dean_user_id})
+
         return assignment
 
-    def remove(self, assignment_id: int) -> bool:
-        return self.repo.delete(assignment_id)
+    def remove(self, actor_user_id: int, assignment_id: int) -> bool:
+        assignment = self.repo.get_by_id(assignment_id)
+        if assignment is None:
+            return False
+
+        faculty_id = assignment.faculty_id
+        dean_id = assignment.user_id
+        self.repo.delete(assignment_id)
+
+        self.audit_log_service.log(AuditLogCreate(
+            user_id=actor_user_id,
+            action="dean_faculty_assignment_removed",
+            target_type="faculty",
+            target_id=faculty_id,
+            details={"dean_user_id": dean_id},
+        ))
+
+        events.publish_event(AuthEvent.user_scopes_changed, {"user_id": dean_id})
+
+        return True

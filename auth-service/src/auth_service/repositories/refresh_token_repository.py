@@ -1,9 +1,8 @@
-from datetime import datetime
-
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from auth_service.models.refresh_token import RefreshToken
+from auth_service.utils.clock import utc_now
 
 
 class RefreshTokenRepository:
@@ -28,7 +27,7 @@ class RefreshTokenRepository:
         token = self.session.get(RefreshToken, token_id)
         if token is None:
             return False
-        token.revoked_at = datetime.utcnow()
+        token.revoked_at = utc_now()
         self.session.commit()
         return True
 
@@ -40,5 +39,9 @@ class RefreshTokenRepository:
             )
         ).all()
         for token in tokens:
-            token.revoked_at = datetime.utcnow()
+            token.revoked_at = utc_now()
+        self.session.commit()
+
+    def delete_all_for_user(self, user_id: int) -> None:
+        self.session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
         self.session.commit()

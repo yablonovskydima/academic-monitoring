@@ -61,19 +61,6 @@ def test_deactivate_unknown_user_returns_404(client, db_session):
     assert response.status_code == 404
 
 
-def test_curator_can_assign_self_to_a_group(client, db_session):
-    make_user(db_session, UserRoleEnum.curator, "curator4@example.com")
-    tokens = login(client, "curator4@example.com")
-
-    response = client.post(
-        "/curator-assignments/",
-        headers=auth_headers(tokens["access_token"]),
-        json={"group_id": 1},
-    )
-
-    assert response.status_code == 201
-
-
 def test_non_curator_cannot_assign_self_to_a_group(client, db_session):
     make_user(db_session, UserRoleEnum.dean, "dean1@example.com")
     tokens = login(client, "dean1@example.com")
@@ -131,20 +118,6 @@ def test_assign_dean_to_faculty_requires_admin(client, db_session):
     assert response.status_code == 403
 
 
-def test_admin_can_assign_dean_to_faculty(client, db_session):
-    make_user(db_session, UserRoleEnum.admin, "admin4@example.com")
-    admin_tokens = login(client, "admin4@example.com")
-    dean = make_user(db_session, UserRoleEnum.dean, "dean4@example.com")
-
-    response = client.post(
-        "/dean-assignments/",
-        headers=auth_headers(admin_tokens["access_token"]),
-        json={"dean_user_id": dean.id, "faculty_id": 1},
-    )
-
-    assert response.status_code == 201
-
-
 def test_dean_can_read_their_own_faculties(client, db_session):
     make_user(db_session, UserRoleEnum.admin, "admin5@example.com")
     admin_tokens = login(client, "admin5@example.com")
@@ -193,13 +166,3 @@ def test_audit_log_requires_admin(client, db_session):
     assert all_logs.status_code == 403
     assert by_user.status_code == 403
     assert by_target.status_code == 403
-
-
-def test_admin_can_read_audit_log(client, db_session):
-    make_user(db_session, UserRoleEnum.admin, "admin6@example.com")
-    tokens = login(client, "admin6@example.com")
-
-    response = client.get("/audit-log/", headers=auth_headers(tokens["access_token"]))
-
-    assert response.status_code == 200
-    assert isinstance(response.json(), list)

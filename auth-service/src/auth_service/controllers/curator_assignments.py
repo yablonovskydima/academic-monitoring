@@ -44,4 +44,4 @@ def remove_assignment(
     if assignment.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your assignment")
 
-    service.remove(assignment_id)
+    service.remove(current_user.id, assignment_id)

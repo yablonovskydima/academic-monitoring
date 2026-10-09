@@ -1,12 +1,13 @@
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
 from auth_service.config import PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
 from auth_service.models.password_reset_token import PasswordResetToken
 from auth_service.repositories.password_reset_token_repository import PasswordResetTokenRepository
+from auth_service.utils.clock import utc_now
 from auth_service.utils.security import hash_token
 
 
@@ -26,7 +27,7 @@ class PasswordResetTokenService:
         record = PasswordResetToken(
             user_id=user_id,
             token_hash=hash_token(raw_token),
-            expires_at=datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES),
+            expires_at=utc_now() + timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES),
         )
         self.repo.save(record)
 
@@ -38,7 +39,7 @@ class PasswordResetTokenService:
             return None
         if record.used_at is not None:
             return None
-        if record.expires_at < datetime.utcnow():
+        if record.expires_at < utc_now():
             return None
         return record
 

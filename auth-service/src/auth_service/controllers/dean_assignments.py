@@ -45,4 +45,4 @@ def remove_assignment(
     if assignment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
-    service.remove(assignment_id)
+    service.remove(current_user.id, assignment_id)

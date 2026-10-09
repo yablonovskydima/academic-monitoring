@@ -1,3 +1,4 @@
+from auth_shared import AuthEvent
 from sqlalchemy.orm import Session
 
 from auth_service.clients.import_service_client import ImportServiceClient
@@ -5,6 +6,7 @@ from auth_service.models.curator_group_assignment import CuratorGroupAssignment
 from auth_service.repositories.curator_group_assignment_repository import CuratorGroupAssignmentRepository
 from auth_service.schemas.audit_log import AuditLogCreate
 from auth_service.services.audit_log_service import AuditLogService
+from auth_service.utils import events
 
 
 class CuratorGroupAssignmentService:
@@ -35,7 +37,27 @@ class CuratorGroupAssignmentService:
             target_id=group_id,
         ))
 
+        events.publish_event(AuthEvent.user_scopes_changed, {"user_id": user_id})
+
         return assignment
 
-    def remove(self, assignment_id: int) -> bool:
-        return self.repo.delete(assignment_id)
+    def remove(self, actor_user_id: int, assignment_id: int) -> bool:
+        assignment = self.repo.get_by_id(assignment_id)
+        if assignment is None:
+            return False
+
+        group_id = assignment.group_id
+        owner_id = assignment.user_id
+        self.repo.delete(assignment_id)
+
+        self.audit_log_service.log(AuditLogCreate(
+            user_id=actor_user_id,
+            action="curator_group_assignment_removed",
+            target_type="group",
+            target_id=group_id,
+            details={"curator_user_id": owner_id},
+        ))
+
+        events.publish_event(AuthEvent.user_scopes_changed, {"user_id": owner_id})
+
+        return True

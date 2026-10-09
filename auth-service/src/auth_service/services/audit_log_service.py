@@ -6,12 +6,6 @@ from auth_service.schemas.audit_log import AuditLogCreate
 
 
 class AuditLogService:
-    """
-    See CLAUDE.md / models/audit_log.py — this is the accountability
-    trail for the whole platform. Business logic anywhere that reads
-    sensitive student data or changes something another user relies
-    on should call `log(...)` here, not skip it.
-    """
 
     def __init__(self, db: Session):
         self.repo = AuditLogRepository(db)
@@ -32,5 +26,7 @@ class AuditLogService:
     def get_by_user(self, user_id: int, limit: int = 100, offset: int = 0) -> list[AuditLog]:
         return self.repo.get_by_user(user_id, limit=limit, offset=offset)
 
-    def get_by_target(self, target_type: str, target_id: int) -> list[AuditLog]:
-        return self.repo.get_by_target(target_type, target_id)
+    def get_by_target(
+        self, target_type: str, target_id: int, limit: int = 100, offset: int = 0
+    ) -> list[AuditLog]:
+        return self.repo.get_by_target(target_type, target_id, limit=limit, offset=offset)

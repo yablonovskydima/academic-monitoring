@@ -1,9 +1,8 @@
-from datetime import datetime
-
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from auth_service.models.password_reset_token import PasswordResetToken
+from auth_service.utils.clock import utc_now
 
 
 class PasswordResetTokenRepository:
@@ -25,6 +24,10 @@ class PasswordResetTokenRepository:
         token = self.session.get(PasswordResetToken, token_id)
         if token is None:
             return False
-        token.used_at = datetime.utcnow()
+        token.used_at = utc_now()
         self.session.commit()
         return True
+
+    def delete_all_for_user(self, user_id: int) -> None:
+        self.session.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
+        self.session.commit()

@@ -16,20 +16,23 @@ class AuditLogRepository:
 
     def get_all(self, limit: int = 100, offset: int = 0) -> list[AuditLog]:
         return list(self.session.scalars(
-            select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+            select(AuditLog).order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(limit).offset(offset)
         ).all())
 
     def get_by_user(self, user_id: int, limit: int = 100, offset: int = 0) -> list[AuditLog]:
         return list(self.session.scalars(
             select(AuditLog)
             .where(AuditLog.user_id == user_id)
-            .order_by(AuditLog.created_at.desc())
+            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
             .limit(limit).offset(offset)
         ).all())
 
-    def get_by_target(self, target_type: str, target_id: int) -> list[AuditLog]:
+    def get_by_target(
+        self, target_type: str, target_id: int, limit: int = 100, offset: int = 0
+    ) -> list[AuditLog]:
         return list(self.session.scalars(
             select(AuditLog)
             .where(AuditLog.target_type == target_type, AuditLog.target_id == target_id)
-            .order_by(AuditLog.created_at.desc())
+            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+            .limit(limit).offset(offset)
         ).all())

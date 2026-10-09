@@ -1,10 +1,10 @@
+from auth_shared import Claims, get_claims
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from auth_service.database import get_db
 from auth_service.dependencies import get_current_user
 from auth_service.models.user import User
-from auth_service.utils.rate_limit import rate_limit
 from auth_service.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -17,7 +17,7 @@ from auth_service.schemas.auth import (
 from auth_service.schemas.user import UserOut
 from auth_service.services.auth_service import AuthService
 
-router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(rate_limit)])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenPair)
@@ -74,6 +74,15 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
         AuthService(db).reset_password(data.token, data.new_password)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/introspect", response_model=Claims)
+def introspect(
+    claims: Claims = Depends(get_claims),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return AuthService(db).claims_for(current_user, claims.session_id)
 
 
 @router.get("/me", response_model=UserOut)
