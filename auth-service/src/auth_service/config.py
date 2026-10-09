@@ -1,0 +1,38 @@
+import os
+
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
+
+AUTH_SERVICE_PORT = int(os.getenv("AUTH_SERVICE_PORT", "8003"))
+
+IMPORT_SERVICE_URL = os.getenv("IMPORT_SERVICE_URL")
+
+if not IMPORT_SERVICE_URL:
+    raise RuntimeError("IMPORT_SERVICE_URL is not set. Check your .env file.")
+
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "30"))
+
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not JWT_SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY is not set. Check your .env file.")
+
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_UNAUTHENTICATED_MAX = int(os.getenv("RATE_LIMIT_UNAUTHENTICATED_MAX", "10"))
+RATE_LIMIT_AUTHENTICATED_MAX = int(os.getenv("RATE_LIMIT_AUTHENTICATED_MAX", "60"))
+RATE_LIMIT_IP_MAX = int(os.getenv("RATE_LIMIT_IP_MAX", "300"))
+
+INITIAL_ADMIN_EMAIL = os.getenv("INITIAL_ADMIN_EMAIL")
+INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD")
+INITIAL_ADMIN_FIRST_NAME = os.getenv("INITIAL_ADMIN_FIRST_NAME", "Admin")
+INITIAL_ADMIN_LAST_NAME = os.getenv("INITIAL_ADMIN_LAST_NAME", "Admin")
+ALLOWED_EMAIL_DOMAINS = [
+    d.strip().lower()
+    for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "pnu.edu.ua,cnu.edu.ua").split(",")
+    if d.strip()
+]

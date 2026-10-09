@@ -19,6 +19,8 @@ dependencies = [
 members = [
     "import-service",
     "ml-service",
+    "auth-service",
+    "auth-shared",
 ]
 
 [dependency-groups]
