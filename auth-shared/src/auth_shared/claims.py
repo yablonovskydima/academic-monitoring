@@ -17,6 +17,7 @@ class Claims(BaseModel):
     role: Role
     group_ids: list[int] = []
     faculty_ids: list[int] = []
+    session_id: int | None = None
 
 
 class InvalidTokenError(Exception):
@@ -38,6 +39,7 @@ def decode_and_verify(token: str) -> Claims:
             role=payload["role"],
             group_ids=payload.get("group_ids", []),
             faculty_ids=payload.get("faculty_ids", []),
+            session_id=payload.get("sid"),
         )
     except (KeyError, ValueError) as e:
         raise InvalidTokenError(f"Malformed token payload: {e}") from e
