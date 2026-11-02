@@ -41,6 +41,39 @@ def test_encode_produces_one_row_per_feature_with_expected_values():
     assert df.iloc[0]["study_mode_individual_schedule"] == 0
 
 
+def test_index_models_must_rise_with_grades_and_fall_with_absence():
+    constraints = FeatureEncoder().monotone_constraints_for(ModelPurpose.index_regression)
+
+    assert constraints["avg_grade"] == 1
+    assert constraints["absence_percent"] == -1
+    assert constraints["missing_submissions_count"] == -1
+
+
+def test_risk_models_get_the_opposite_directions():
+    encoder = FeatureEncoder()
+    index = encoder.monotone_constraints_for(ModelPurpose.index_forecast_horizon_2)
+
+    for purpose in (ModelPurpose.expulsion_classifier, ModelPurpose.debt_classifier):
+        risk = encoder.monotone_constraints_for(purpose)
+        assert risk == {column: -direction for column, direction in index.items()}
+
+
+def test_trend_and_context_features_are_left_unconstrained():
+    constraints = FeatureEncoder().monotone_constraints_for(ModelPurpose.index_regression)
+
+    for column in ("avg_grade_delta", "course_year", "study_mode_full_time", "semesters_completed_count"):
+        assert column not in constraints
+
+
+def test_constraints_only_name_columns_the_model_actually_gets():
+    encoder = FeatureEncoder()
+
+    constraints = encoder.monotone_constraints_for(ModelPurpose.admission_classifier)
+
+    assert set(constraints) <= set(encoder.columns_for(ModelPurpose.admission_classifier))
+    assert "cumulative_avg_grade" not in constraints
+
+
 def test_encode_for_admission_drops_cumulative_values_from_the_dataframe():
     encoder = FeatureEncoder()
     features = make_features()

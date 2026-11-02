@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from ml_service.models.risk_assessment import RiskAssessment
 from ml_service.models.student_index import StudentIndex
 
 
@@ -26,7 +27,7 @@ class StudentIndexRepository:
             .options(
                 selectinload(StudentIndex.explanations),
                 selectinload(StudentIndex.feature_snapshot),
-                selectinload(StudentIndex.risk_assessments),
+                selectinload(StudentIndex.risk_assessments).selectinload(RiskAssessment.explanations),
                 selectinload(StudentIndex.forecasts),
             )
             .where(StudentIndex.student_id == student_id)

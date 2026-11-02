@@ -1,12 +1,13 @@
 from datetime import datetime
 
+from ml_service.ml.targets.target_calculator import LabelWindow
 from ml_service.services.model_promotion_service import ModelPromotionService, PromotionResult
 from ml_service.models.model_version import ModelPurpose
 
 RISK_CONFIGS = [
-    (ModelPurpose.expulsion_classifier, "calculate_expulsion_label", False),
-    (ModelPurpose.debt_classifier, "calculate_debt_label", True),
-    (ModelPurpose.admission_classifier, "calculate_admission_denial_label", False),
+    (ModelPurpose.expulsion_classifier, "calculate_expulsion_label", LabelWindow.next_semester),
+    (ModelPurpose.debt_classifier, "calculate_debt_label", LabelWindow.next_semester_enrolled),
+    (ModelPurpose.admission_classifier, "calculate_admission_denial_label", LabelWindow.current_semester),
 ]
 
 
@@ -34,12 +35,12 @@ class RiskTrainingPipeline:
     ) -> dict[str, PromotionResult]:
         results: dict[str, PromotionResult] = {}
 
-        for purpose, label_method_name, requires_next_semester in RISK_CONFIGS:
+        for purpose, label_method_name, label_window in RISK_CONFIGS:
             label_fn = getattr(self.target_calculator, label_method_name)
 
             X_raw, y = self.target_calculator.build_classification_dataset(
                 semester_features, all_semester_ids_ordered, label_fn,
-                requires_next_semester=requires_next_semester,
+                label_window=label_window,
             )
             positive_count = sum(y)
             total_count = len(y)
@@ -57,7 +58,12 @@ class RiskTrainingPipeline:
             X_encoded = self.feature_encoder.encode(X_raw, purpose=purpose)
 
             warm_start_model = self.promotion_service.load_active_model(purpose)
-            result = self.risk_trainer.train(X_encoded, y, warm_start_model=warm_start_model)
+            groups = [features.student_id for features in X_raw]
+            result = self.risk_trainer.train(
+                X_encoded, y, groups,
+                monotone_constraints=self.feature_encoder.monotone_constraints_for(purpose),
+                warm_start_model=warm_start_model,
+            )
 
             version_label = self.promotion_service.next_version_label(purpose)
             model_file_path = self.model_persistence.save(result.model, f"{purpose.value}_{version_label}")

@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from xgboost import XGBClassifier
 
@@ -23,6 +23,8 @@ class RiskTrainer:
         self,
         X: pd.DataFrame,
         y: list[int],
+        groups: list[int],
+        monotone_constraints: dict[str, int] | None = None,
         warm_start_model: XGBClassifier | None = None,
     ) -> RiskResult:
         if len(X) < self.MIN_TRAINING_SAMPLES:
@@ -33,16 +35,20 @@ class RiskTrainer:
         if len(set(y)) < 2:
             raise ValueError("Target has only one class — cannot train a classifier. Check your data.")
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=self.TEST_SIZE, random_state=self.RANDOM_STATE, stratify=y
+        splitter = StratifiedGroupKFold(
+            n_splits=round(1 / self.TEST_SIZE), shuffle=True, random_state=self.RANDOM_STATE,
         )
+        train_idx, test_idx = next(splitter.split(X, y, groups))
+        y_series = pd.Series(y)
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y_series.iloc[train_idx].tolist(), y_series.iloc[test_idx].tolist()
 
         positive_count = sum(y_train)
         negative_count = len(y_train) - positive_count
         scale_pos_weight = negative_count / positive_count if positive_count > 0 else 1.0
 
         warm_started = warm_start_model is not None
-        model = self._make_model(warm_started, scale_pos_weight)
+        model = self._make_model(warm_started, scale_pos_weight, monotone_constraints)
 
         try:
             if warm_started:
@@ -52,7 +58,7 @@ class RiskTrainer:
         except Exception as e:
             print(f"[risk_trainer] warm-start failed ({e}), falling back to cold start")
             warm_started = False
-            model = self._make_model(warm_started, scale_pos_weight)
+            model = self._make_model(warm_started, scale_pos_weight, monotone_constraints)
             model.fit(X_train, y_train)
 
         predictions = model.predict(X_test)
@@ -70,8 +76,14 @@ class RiskTrainer:
 
         return RiskResult(model=model, metrics=metrics)
 
-    def _make_model(self, warm_started: bool, scale_pos_weight: float) -> XGBClassifier:
+    def _make_model(
+        self,
+        warm_started: bool,
+        scale_pos_weight: float,
+        monotone_constraints: dict[str, int] | None,
+    ) -> XGBClassifier:
         return XGBClassifier(
+            monotone_constraints=monotone_constraints,
             n_estimators=self.WARM_START_N_ESTIMATORS if warm_started else self.N_ESTIMATORS,
             max_depth=self.MAX_DEPTH,
             learning_rate=self.LEARNING_RATE,

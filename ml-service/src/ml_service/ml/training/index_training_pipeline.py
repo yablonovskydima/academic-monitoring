@@ -36,7 +36,12 @@ class IndexTrainingPipeline:
         X_encoded = self.feature_encoder.encode(X_raw, purpose=ModelPurpose.index_regression)
 
         warm_start_model = self.promotion_service.load_active_model(ModelPurpose.index_regression)
-        result = self.model_trainer.train(X_encoded, y, warm_start_model=warm_start_model)
+        groups = [features.student_id for features in X_raw]
+        result = self.model_trainer.train(
+            X_encoded, y, groups,
+            monotone_constraints=self.feature_encoder.monotone_constraints_for(ModelPurpose.index_regression),
+            warm_start_model=warm_start_model,
+        )
 
         version_label = self.promotion_service.next_version_label(ModelPurpose.index_regression)
         model_file_path = self.model_persistence.save(result.model, f"index_regression_{version_label}")

@@ -65,6 +65,22 @@ def _get_late_submission_probability(student: dict) -> float:
     return _get_profile_settings(student)["late_submission_probability"]
 
 
+def _get_semester_missing_submission_probability(
+    student: dict,
+    semester_id: int,
+    cache: dict[tuple[int, int], float],
+) -> float:
+    key = (student["id"], semester_id)
+
+    if key not in cache:
+        cache[key] = min(1.0, max(0.0, random.gauss(
+            _get_profile_settings(student)["missing_submission_probability"],
+            config.SEMESTER_MISSING_SUBMISSION_DRIFT_STDDEV,
+        )))
+
+    return cache[key]
+
+
 # ---------------------------------------------------------------------------
 # Groups / students
 # ---------------------------------------------------------------------------
@@ -85,7 +101,7 @@ def generate_groups(faculties: list[dict]) -> list[dict]:
             "id": i + 1,
             "name": f"CS-{20 + i}",
             "faculty_id": random.choice(faculty_ids),
-            "course_year": random.randint(1, 4),
+            "course_year": config.COHORT_CURRENT_COURSE_YEAR,
         })
 
     return groups
@@ -272,23 +288,22 @@ def generate_enrollments(
     offerings is extended with any retake offerings created below, so
     callers must use the returned list, not the one passed in.
 
-    Normal students:
-        subjects are selected randomly from that semester's own
-        curriculum position (see config.CURRICULUM) — subjects are
-        NOT shared across semesters, so this never accidentally
-        produces a repeat.
+    Subjects are selected randomly from that semester's own curriculum
+    position (see config.CURRICULUM) — subjects are NOT shared across
+    semesters, so this never accidentally produces a repeat.
 
-    Debt-risk students:
-        from the second semester onward, 1-2 subjects from the previous
-        semester are intentionally repeated. Since a subject normally
-        only has an offering in its own semester position, repeating
-        one means creating a one-off "retake" offering for it here.
+    Every enrollment gets a hidden "score_mean" (the student's semester
+    score level plus per-subject noise) that generate_grades draws the
+    subject's grades around. A subject whose score_mean is below
+    config.PASS_SCORE is failed; a failed subject is retaken next
+    semester with probability config.RETAKE_PROBABILITY_IF_FAILED
+    (otherwise the debt was closed on a re-exam, which leaves no trace
+    in the data). Since a subject normally only has an offering in its
+    own semester position, retaking one means creating a one-off
+    "retake" offering for it here.
 
-    This creates real positive examples for:
-
-        repeated_subjects_count > 0
-
-    without adding any fake ML-specific fields to the generated data.
+    So repeated_subjects_count > 0 follows from actually failing a
+    subject, for any profile, not from the profile itself.
     """
     enrollments = []
     all_offerings = list(offerings)
@@ -302,9 +317,10 @@ def generate_enrollments(
         for semester in semesters
     }
 
-    previous_subjects_by_student: dict[int, set[int]] = {}
+    failed_subjects_by_student: dict[int, set[int]] = {}
+    score_drift_cache: dict[tuple[int, int], float] = {}
 
-    for semester_index, semester in enumerate(semesters):
+    for semester in semesters:
         semester_id = semester["id"]
         available = offerings_by_semester[semester_id]
 
@@ -321,39 +337,23 @@ def generate_enrollments(
             count = random.randint(min_count, max_count)
             count = min(count, len(available))
 
-            risk_profile = student.get("risk_profile", "normal")
-
-            previous_subjects = previous_subjects_by_student.get(
-                student_id,
-                set(),
-            )
-
             selected_subject_ids: set[int] = set()
 
             # ---------------------------------------------------------------
-            # Debt-risk students intentionally repeat subjects.
+            # Failed subjects are retaken (unless closed on a re-exam).
             # ---------------------------------------------------------------
 
-            if (
-                semester_index > 0
-                and risk_profile == "debt_risk"
-                and previous_subjects
-            ):
-                repeat_min, repeat_max = (
-                    config.DEBT_REPEATED_SUBJECTS_RANGE
-                )
+            retaken_subjects = [
+                subject_id
+                for subject_id in sorted(failed_subjects_by_student.get(student_id, set()))
+                if random.random() < config.RETAKE_PROBABILITY_IF_FAILED
+            ]
+            max_retakes = min(config.MAX_RETAKES_PER_SEMESTER, count)
+            if len(retaken_subjects) > max_retakes:
+                retaken_subjects = random.sample(retaken_subjects, max_retakes)
 
-                repeat_count = random.randint(
-                    repeat_min,
-                    min(repeat_max, count, len(previous_subjects)),
-                )
-
-                repeated_subjects = random.sample(
-                    list(previous_subjects),
-                    repeat_count,
-                )
-
-                for subject_id in repeated_subjects:
+            if retaken_subjects:
+                for subject_id in retaken_subjects:
                     if (
                         subject_id in offering_by_subject
                         or subject_id in retake_offering_by_subject
@@ -373,7 +373,7 @@ def generate_enrollments(
                     all_offerings.append(retake_offering)
                     retake_offering_by_subject[subject_id] = retake_offering
 
-                selected_subject_ids.update(repeated_subjects)
+                selected_subject_ids.update(retaken_subjects)
 
             # ---------------------------------------------------------------
             # Fill the remaining enrollment slots randomly.
@@ -399,22 +399,34 @@ def generate_enrollments(
             # Create enrollments.
             # ---------------------------------------------------------------
 
+            semester_score_mean, _ = _get_semester_score_parameters(
+                student, semester_id, score_drift_cache,
+            )
+            failed_now: set[int] = set()
+
             for subject_id in selected_subject_ids:
                 offering = (
                     offering_by_subject.get(subject_id)
                     or retake_offering_by_subject[subject_id]
                 )
 
+                subject_score_mean = _clip_score(random.gauss(
+                    semester_score_mean,
+                    config.SUBJECT_SCORE_SPREAD,
+                ))
+
+                if subject_score_mean < config.PASS_SCORE:
+                    failed_now.add(subject_id)
+
                 enrollments.append({
                     "id": _next_id("enrollment"),
                     "student_id": student_id,
                     "subject_offering_id": offering["id"],
                     "enrolled_at": semester["start_date"],
+                    "score_mean": subject_score_mean,
                 })
 
-            previous_subjects_by_student[student_id] = (
-                selected_subject_ids
-            )
+            failed_subjects_by_student[student_id] = failed_now
 
     return enrollments, all_offerings
 
@@ -557,7 +569,7 @@ def generate_grades(
     semester_id_by_offering: dict[int, int],
 ) -> list[dict]:
     grades = []
-    drift_cache: dict[tuple[int, int], float] = {}
+    missing_cache: dict[tuple[int, int], float] = {}
 
     for enrollment in enrollments:
         student = students_by_id[enrollment["student_id"]]
@@ -589,16 +601,21 @@ def generate_grades(
         ]
 
         semester_id = semester_id_by_offering[enrollment["subject_offering_id"]]
-        score_mean, score_stddev = _get_semester_score_parameters(
-            student, semester_id, drift_cache,
-        )
+        score_mean = enrollment["score_mean"]
+        score_stddev = _get_profile_settings(student)["score_stddev"]
         late_probability = _get_late_submission_probability(student)
+        missing_probability = _get_semester_missing_submission_probability(
+            student, semester_id, missing_cache,
+        )
 
         # ---------------------------------------------------------------
         # Lab submissions
         # ---------------------------------------------------------------
 
         for i, session in enumerate(lab_sessions):
+            if random.random() < missing_probability:
+                continue
+
             session_date = date.fromisoformat(session["date"])
 
             if i + 1 < len(lab_sessions):
@@ -644,6 +661,12 @@ def generate_grades(
         # ---------------------------------------------------------------
 
         for session in control_sessions + exam_sessions:
+            if (
+                session["session_type"] == "control"
+                and random.random() < missing_probability
+            ):
+                continue
+
             session_date = date.fromisoformat(
                 session["date"]
             )
@@ -814,7 +837,7 @@ def write_csv(
 
     output_rows = []
 
-    internal_fields = {"risk_profile", "risk_score_mean", "risk_absence_probability"}
+    internal_fields = {"risk_profile", "risk_score_mean", "risk_absence_probability", "score_mean"}
 
     for row in rows:
         output_rows.append({

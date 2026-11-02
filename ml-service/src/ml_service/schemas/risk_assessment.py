@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 
 from ml_service.models.risk_assessment import RiskType
+from ml_service.schemas.risk_explanation import RiskExplanationOut
 
 
 class RiskAssessmentCreate(BaseModel):
@@ -17,3 +18,4 @@ class RiskAssessmentOut(BaseModel):
     risk_type: RiskType
     probability: float
     model_version_id: int
+    explanations: list[RiskExplanationOut] = []
