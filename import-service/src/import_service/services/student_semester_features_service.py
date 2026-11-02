@@ -7,6 +7,15 @@ from import_service.schemas.student_semester_features import StudentSemesterFeat
 from import_service.models.class_session import SessionType
 
 
+def _academic_year_start(academic_year: str) -> int:
+    return int(academic_year.split("/")[0])
+
+
+def course_year_at(current_course_year: int, academic_year: str, latest_academic_year: str) -> int:
+    years_back = _academic_year_start(latest_academic_year) - _academic_year_start(academic_year)
+    return max(1, current_course_year - years_back)
+
+
 class StudentSemesterFeaturesService:
     def __init__(self, db: Session):
         self.repo = StudentSemesterFeaturesRepository(db)
@@ -20,6 +29,7 @@ class StudentSemesterFeaturesService:
         semesters = self.repo.get_all_semesters()
         semesters_by_id = {s["semester_id"]: s for s in semesters}
         ordered_semester_ids = [s["semester_id"] for s in semesters]
+        latest_academic_year = max((s["academic_year"] for s in semesters), key=_academic_year_start)
 
         def _index_by_pair(rows: list[dict]) -> dict[tuple[int, int], dict]:
             return {(r["student_id"], r["semester_id"]): r for r in rows}
@@ -150,7 +160,7 @@ class StudentSemesterFeaturesService:
                     semester_id=semester_id,
                     academic_year=sem["academic_year"],
                     term=sem["term"],
-                    course_year=info["course_year"],
+                    course_year=course_year_at(info["course_year"], sem["academic_year"], latest_academic_year),
                     study_mode=info["study_mode"],
 
                     avg_grade=float(g_stats.get("avg_grade") or 0.0),

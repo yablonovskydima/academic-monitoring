@@ -49,7 +49,12 @@ class ForecastTrainingPipeline:
             X_encoded = self.feature_encoder.encode(X_raw, purpose=purpose)
 
             warm_start_model = self.promotion_service.load_active_model(purpose)
-            result = self.model_trainer.train(X_encoded, y, warm_start_model=warm_start_model)
+            groups = [features.student_id for features in X_raw]
+            result = self.model_trainer.train(
+                X_encoded, y, groups,
+                monotone_constraints=self.feature_encoder.monotone_constraints_for(purpose),
+                warm_start_model=warm_start_model,
+            )
 
             version_label = self.promotion_service.next_version_label(purpose)
             model_file_path = self.model_persistence.save(result.model, f"{purpose.value}_{version_label}")

@@ -40,6 +40,7 @@ RISK_PROFILE_SETTINGS = {
         "score_mean_spread": 10.0,
         "score_stddev": 15.0,
         "late_submission_probability": 0.15,
+        "missing_submission_probability": 0.03,
     },
 
     "admission_risk": {
@@ -49,6 +50,7 @@ RISK_PROFILE_SETTINGS = {
         "score_mean_spread": 10.0,
         "score_stddev": 15.0,
         "late_submission_probability": 0.30,
+        "missing_submission_probability": 0.12,
     },
 
     "debt_risk": {
@@ -58,6 +60,7 @@ RISK_PROFILE_SETTINGS = {
         "score_mean_spread": 10.0,
         "score_stddev": 18.0,
         "late_submission_probability": 0.35,
+        "missing_submission_probability": 0.15,
     },
 
     "expulsion_risk": {
@@ -67,6 +70,7 @@ RISK_PROFILE_SETTINGS = {
         "score_mean_spread": 10.0,
         "score_stddev": 20.0,
         "late_submission_probability": 0.45,
+        "missing_submission_probability": 0.25,
     },
 
     "admission_and_expulsion_risk": {
@@ -76,8 +80,13 @@ RISK_PROFILE_SETTINGS = {
         "score_mean_spread": 10.0,
         "score_stddev": 20.0,
         "late_submission_probability": 0.50,
+        "missing_submission_probability": 0.30,
     },
 }
+
+# Per-semester noise around the profile's missing-submission probability,
+# so a student's submission discipline drifts between semesters.
+SEMESTER_MISSING_SUBMISSION_DRIFT_STDDEV = 0.04
 
 
 # ---------- semesters ----------
@@ -87,6 +96,13 @@ ACADEMIC_YEARS = [
     "2024/2025",
     "2025/2026",
 ]
+
+# The whole synthetic population is one cohort that starts year 1 in
+# the first academic year (semester i <-> CURRICULUM[i]), so every
+# group is in this course year as of the latest academic year.
+# groups.course_year is the group's *current* course year;
+# import-service derives earlier semesters' course year from it.
+COHORT_CURRENT_COURSE_YEAR = len(ACADEMIC_YEARS)
 
 
 # ---------- teachers / subjects ----------
@@ -175,9 +191,15 @@ CONTROLS_PER_OFFERING = 2
 # effectively clamped to "take (almost) the whole semester's load".
 ENROLLMENTS_PER_STUDENT_PER_SEMESTER = (6, 8)
 
-# Number of subjects a debt-risk student should try to repeat
-# from the previous semester.
-DEBT_REPEATED_SUBJECTS_RANGE = (1, 2)
+# A subject's score level is the student's semester level plus this
+# per-subject noise; below PASS_SCORE the subject is failed.
+SUBJECT_SCORE_SPREAD = 10.0
+PASS_SCORE = 50.0
+
+# A failed subject is either retaken next semester or closed on a
+# re-exam (which leaves no trace in the data).
+RETAKE_PROBABILITY_IF_FAILED = 0.5
+MAX_RETAKES_PER_SEMESTER = 3
 
 
 # ---------- attendance ----------

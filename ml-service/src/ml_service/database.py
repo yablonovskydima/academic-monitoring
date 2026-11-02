@@ -30,7 +30,7 @@ class Base(DeclarativeBase):
 def init_db() -> None:
     from ml_service.models import (
         model_version, student_index, index_explanation,
-        feature_snapshot, risk_assessment, index_forecast,
+        feature_snapshot, risk_assessment, risk_explanation, index_forecast, ml_job,
     )
     Base.metadata.create_all(bind=engine)
 

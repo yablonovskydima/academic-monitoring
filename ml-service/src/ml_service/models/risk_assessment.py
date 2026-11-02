@@ -9,6 +9,7 @@ from ml_service.database import Base
 if TYPE_CHECKING:
     from ml_service.models.student_index import StudentIndex
     from ml_service.models.model_version import ModelVersion
+    from ml_service.models.risk_explanation import RiskExplanation
 
 
 class RiskType(str, enum.Enum):
@@ -28,3 +29,6 @@ class RiskAssessment(Base):
 
     student_index: Mapped["StudentIndex"] = relationship(back_populates="risk_assessments")
     model_version: Mapped["ModelVersion"] = relationship()
+    explanations: Mapped[list["RiskExplanation"]] = relationship(
+        back_populates="risk_assessment", order_by="RiskExplanation.rank",
+    )

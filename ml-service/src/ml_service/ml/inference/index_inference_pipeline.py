@@ -1,8 +1,7 @@
 from datetime import datetime
 
-import shap
-
 from ml_service.ml.encoding.feature_encoder import FeatureEncoder
+from ml_service.ml.inference.shap_contributions import make_explainer, top_contributions
 from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.services.student_index_service import StudentIndexService
@@ -14,7 +13,6 @@ from ml_service.schemas.feature_snapshot import FeatureSnapshotCreate
 from ml_service.models.model_version import ModelPurpose
 from ml_service.models.student_index import IndexCategory, StudentIndex
 
-TOP_N_EXPLANATIONS = 5
 CATEGORY_HIGH_THRESHOLD = 70.0
 CATEGORY_MEDIUM_THRESHOLD = 40.0
 
@@ -49,10 +47,16 @@ class IndexInferencePipeline:
             raise ValueError("No active index_regression model found. Train a model first.")
 
         self._model = self.model_persistence.load(self._active_version.model_file_path)
-        self._explainer = shap.TreeExplainer(self._model)
+
+    def set_background(self, background_rows) -> None:
+        self._ensure_loaded()
+        background = self.feature_encoder.encode(background_rows, purpose=ModelPurpose.index_regression)
+        self._explainer = make_explainer(self._model, background)
 
     def process_batch(self, batch) -> list[StudentIndex]:
         self._ensure_loaded()
+        if self._explainer is None:
+            raise ValueError("set_background must be called before process_batch")
 
         X_encoded = self.feature_encoder.encode(batch, purpose=ModelPurpose.index_regression)
         predictions = self._model.predict(X_encoded)
@@ -78,11 +82,8 @@ class IndexInferencePipeline:
         all_snapshots: list[tuple[int, FeatureSnapshotCreate]] = []
 
         for idx, (student_index, features) in enumerate(zip(created_indexes, batch)):
-            feature_row = X_encoded.iloc[idx]
-            shap_row = shap_values[idx]
-
-            for exp_data in self._build_explanations(feature_row, shap_row):
-                all_explanations.append((student_index.id, exp_data))
+            for contribution in top_contributions(X_encoded.iloc[idx], shap_values[idx]):
+                all_explanations.append((student_index.id, IndexExplanationCreate(**contribution)))
 
             all_snapshots.append((
                 student_index.id,
@@ -100,21 +101,3 @@ class IndexInferencePipeline:
         elif index_value >= CATEGORY_MEDIUM_THRESHOLD:
             return IndexCategory.medium
         return IndexCategory.low
-
-    def _build_explanations(self, feature_row, shap_row) -> list[IndexExplanationCreate]:
-        feature_names = feature_row.index.tolist()
-        feature_values = feature_row.values.tolist()
-
-        contributions = list(zip(feature_names, feature_values, shap_row))
-        contributions.sort(key=lambda x: abs(x[2]), reverse=True)
-        top_contributions = contributions[:TOP_N_EXPLANATIONS]
-
-        return [
-            IndexExplanationCreate(
-                feature_name=name,
-                feature_value=float(value),
-                shap_value=float(shap_val),
-                rank=rank + 1,
-            )
-            for rank, (name, value, shap_val) in enumerate(top_contributions)
-        ]

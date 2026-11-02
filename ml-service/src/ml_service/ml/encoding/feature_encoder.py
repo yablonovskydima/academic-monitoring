@@ -40,11 +40,48 @@ EXCLUDED_COLUMNS_BY_PURPOSE: dict[ModelPurpose, list[str]] = {
 }
 
 
+HIGHER_IS_BETTER = {
+    "avg_grade",
+    "cumulative_avg_grade",
+}
+
+HIGHER_IS_WORSE = {
+    "grade_stddev",
+    "lecture_absence_percent",
+    "lab_absence_percent",
+    "absence_percent",
+    "unworked_absences_count",
+    "missing_submissions_count",
+    "late_submissions_count",
+    "cumulative_absence_percent",
+    "cumulative_avg_missing_submissions",
+    "cumulative_avg_late_submissions",
+}
+
+RISK_PURPOSES = {
+    ModelPurpose.expulsion_classifier,
+    ModelPurpose.debt_classifier,
+    ModelPurpose.admission_classifier,
+}
+
+
 class FeatureEncoder:
 
     def columns_for(self, purpose: ModelPurpose | None) -> list[str]:
         excluded = EXCLUDED_COLUMNS_BY_PURPOSE.get(purpose, [])
         return [c for c in FEATURE_COLUMNS if c not in excluded]
+
+    def monotone_constraints_for(self, purpose: ModelPurpose) -> dict[str, int]:
+        sign = -1 if purpose in RISK_PURPOSES else 1
+        constraints = {}
+
+        for column in self.columns_for(purpose):
+            if column in HIGHER_IS_BETTER:
+                constraints[column] = sign
+            elif column in HIGHER_IS_WORSE:
+                constraints[column] = -sign
+
+        return constraints
 
     def encode(
         self,

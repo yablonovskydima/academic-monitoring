@@ -4,11 +4,13 @@ from fastapi import FastAPI
 from ml_service.controllers import health, training, inference, student_indexes, model_versions
 from ml_service.config import ML_SERVICE_PORT
 from ml_service.database import init_db
+from ml_service.services.ml_job_service import MLJobService
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    MLJobService().fail_interrupted()
     yield
 
 app = FastAPI(title="ML Service", lifespan=lifespan)

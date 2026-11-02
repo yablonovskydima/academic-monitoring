@@ -8,16 +8,24 @@ from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.ml.inference.index_inference_pipeline import IndexInferencePipeline
 from ml_service.ml.inference.risk_inference_pipeline import RiskInferencePipeline
 from ml_service.ml.inference.forecast_inference_pipeline import ForecastInferencePipeline
+from ml_service.ml.inference.shap_contributions import background_sample
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.services.student_index_service import StudentIndexService
 from ml_service.services.index_explanation_service import IndexExplanationService
 from ml_service.services.feature_snapshot_service import FeatureSnapshotService
 from ml_service.services.risk_assessment_service import RiskAssessmentService
+from ml_service.services.risk_explanation_service import RiskExplanationService
 from ml_service.services.index_forecast_service import IndexForecastService
 
 BATCH_SIZE = 500
 
 logger = logging.getLogger(__name__)
+
+
+def current_semester_rows(semester_features: list) -> list:
+    latest_semester_id = max(features.semester_id for features in semester_features)
+    return [features for features in semester_features if features.semester_id == latest_semester_id]
+
 
 class InferenceService:
     def __init__(self, db: Session):
@@ -32,7 +40,7 @@ class InferenceService:
         )
         self.risk_pipeline = RiskInferencePipeline(
             feature_encoder, model_persistence, model_version_service,
-            RiskAssessmentService(db),
+            RiskAssessmentService(db), RiskExplanationService(db),
         )
         self.forecast_pipeline = ForecastInferencePipeline(
             feature_encoder, model_persistence, model_version_service,
@@ -44,13 +52,16 @@ class InferenceService:
         if not semester_features:
             raise ValueError("No semester features received from import-service")
 
-        latest_by_student = {}
-        for features in semester_features:
-            current = latest_by_student.get(features.student_id)
-            if current is None or features.semester_id > current.semester_id:
-                latest_by_student[features.student_id] = features
+        all_features = current_semester_rows(semester_features)
+        logger.info(
+            "Scoring %s students enrolled in the latest semester, skipping %s who are no longer enrolled",
+            len(all_features),
+            len({f.student_id for f in semester_features}) - len(all_features),
+        )
 
-        all_features = list(latest_by_student.values())
+        background = background_sample(all_features)
+        self.index_pipeline.set_background(background)
+        self.risk_pipeline.set_background(background)
 
         processed_count = 0
 
