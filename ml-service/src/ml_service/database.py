@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv, find_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import BigInteger, Integer, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from typing import Generator
 from sqlalchemy.orm import Session
@@ -21,6 +21,9 @@ DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_POR
 
 engine = create_engine(DATABASE_URL, echo=False, executemany_mode="values_plus_batch", insertmanyvalues_page_size=5000)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+BigIntegerPK = BigInteger().with_variant(Integer, "sqlite")
 
 
 class Base(DeclarativeBase):

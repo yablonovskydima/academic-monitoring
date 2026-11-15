@@ -6,9 +6,11 @@ import pytest
 from factories import make_features
 
 from ml_service.ml.encoding.feature_encoder import FeatureEncoder
+from ml_service.ml.inference.insights_payload import InsightsPayloadBuilder
 from ml_service.ml.inference.risk_inference_pipeline import RISK_TYPE_BY_PURPOSE, RiskInferencePipeline
 from ml_service.ml.training.risk_trainer import RiskTrainer
 from ml_service.models.model_version import ModelPurpose
+from ml_service.models.student_index import IndexCategory
 
 
 def _rows(n=120):
@@ -109,3 +111,23 @@ def test_process_batch_requires_a_background(models):
 
     with pytest.raises(ValueError, match="set_background"):
         pipeline.process_batch(_rows()[:1], [SimpleNamespace(id=1)])
+
+
+def test_the_insights_payload_gets_every_risk_with_the_full_shap_vector(models):
+    rows = _rows()[:3]
+    indexes = [SimpleNamespace(id=500 + i, index_value=60.0, category=IndexCategory.medium) for i in range(3)]
+    payload = InsightsPayloadBuilder()
+    for row, index in zip(rows, indexes):
+        payload.add_index(row, index, [])
+    pipeline = _pipeline(models, Explanations())
+    pipeline.set_background(_rows())
+
+    pipeline.process_batch(rows, indexes, payload)
+
+    first = payload.build(1, {row.student_id: 1 for row in rows})["predictions"][0]
+    risks = {risk["risk_type"]: risk for risk in first["risks"]}
+    assert set(risks) == {"expulsion", "academic_debt", "exam_admission_denial"}
+    encoder = FeatureEncoder()
+    for purpose, risk_type in RISK_TYPE_BY_PURPOSE.items():
+        assert [c["feature_name"] for c in risks[risk_type.value]["contributions"]] == encoder.columns_for(purpose)
+        assert len(risks[risk_type.value]["contributions"]) > 5

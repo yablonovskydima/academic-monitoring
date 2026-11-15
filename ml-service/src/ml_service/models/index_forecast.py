@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Float, Integer, BigInteger
+from sqlalchemy import ForeignKey, Float, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ml_service.database import Base
+from ml_service.database import Base, BigIntegerPK
 
 if TYPE_CHECKING:
     from ml_service.models.student_index import StudentIndex
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class IndexForecast(Base):
     __tablename__ = "index_forecasts"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigIntegerPK, primary_key=True, autoincrement=True)
     student_index_id: Mapped[int] = mapped_column(ForeignKey("student_indexes.id"), index=True)
     model_version_id: Mapped[int] = mapped_column(ForeignKey("model_versions.id"), index=True)
     semesters_ahead: Mapped[int] = mapped_column(Integer)

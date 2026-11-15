@@ -2,10 +2,10 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Float, Enum as SAEnum, BigInteger, Integer
+from sqlalchemy import ForeignKey, Float, Enum as SAEnum, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ml_service.database import Base
+from ml_service.database import Base, BigIntegerPK
 
 if TYPE_CHECKING:
     from ml_service.models.model_version import ModelVersion
@@ -24,11 +24,12 @@ class IndexCategory(str, enum.Enum):
 class StudentIndex(Base):
     __tablename__ = "student_indexes"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigIntegerPK, primary_key=True, autoincrement=True)
 
     student_id: Mapped[int] = mapped_column(Integer, index=True)
     semester_id: Mapped[int] = mapped_column(Integer, index=True)
 
+    inference_job_id: Mapped[int] = mapped_column(ForeignKey("ml_jobs.id"), index=True)
     model_version_id: Mapped[int] = mapped_column(ForeignKey("model_versions.id"), index=True)
     index_value: Mapped[float] = mapped_column(Float)
     category: Mapped[IndexCategory] = mapped_column(SAEnum(IndexCategory, name="index_category_enum"))

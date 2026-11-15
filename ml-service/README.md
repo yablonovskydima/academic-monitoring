@@ -29,7 +29,7 @@ Features include current-semester grades/attendance, deltas vs. the previous sem
 | punctuality | 0.05 | 100 − late / gradable sessions % |
 | consistency | 0.05 | 100 − 2·`grade_stddev` |
 
-A full-time student over the critical absence threshold (75%) is capped at 20. A student who has dropped out by the target semester gets 0 (`build_horizon_dataset`). The score uses only the target semester's own data - `disappeared_next_semester` and `repeated_subjects_count` describe the *following* semester and are the classifiers' job.
+A full-time student over the critical absence threshold is capped at 20. The exam admission rule - absence threshold (`ADMISSION_ABSENCE_THRESHOLD`, default 75%) and minimum grade (`ADMISSION_GRADE_THRESHOLD`, default 50) - is read from the shared `.env`, which insights-service reads too; it drives both this cap and the `admission_classifier` label, so after changing it retrain the models. A student who has dropped out by the target semester gets 0 (`build_horizon_dataset`). The score uses only the target semester's own data - `disappeared_next_semester` and `repeated_subjects_count` describe the *following* semester and are the classifiers' job.
 
 Categories: `high` ≥ 70, `medium` ≥ 40, `low` below. On the synthetic data, normal students average ~83, debt-risk ~67, expulsion-risk ~55 and admission-risk students sit at the cap.
 
@@ -76,6 +76,8 @@ FastAPI + SQLAlchemy + PostgreSQL + XGBoost + SHAP (for per-prediction feature e
 2. Env vars this service reads (see repo root `.env`):
    - `DB_USER_ML_SERVICE`, `DB_PASSWORD_ML_SERVICE`, `DB_HOST_ML_SERVICE`, `DB_PORT_ML_SERVICE`, `DB_NAME_ML_SERVICE`
    - `IMPORT_SERVICE_URL` — base URL of `import-service` (required)
+   - `INSIGHTS_SERVICE_URL` — base URL of `insights-service`; each finished inference run is sent there (optional, delivery is skipped when unset)
+   - `ADMISSION_ABSENCE_THRESHOLD`, `ADMISSION_GRADE_THRESHOLD` — the exam admission rule, shared with insights-service (default 75 / 50)
    - `ML_SERVICE_PORT` (default `8002`)
    - `KEEP_INACTIVE_MODEL_VERSIONS` (default `5`) — how many superseded model versions to keep on disk per purpose, for future warm-starting
 3. Install dependencies (from the repo root, `uv` workspace):
@@ -96,14 +98,27 @@ Training and inference take minutes on real data, so they run as **background jo
 
 - `POST /training/jobs` - starts training all 6 models against the latest data from `import-service`. Returns `202` with the job (`status: "queued"`) immediately. Optional body `{"requested_by": <user id>}` - the BFF passes the user who triggered it.
 - `POST /inference/jobs` - starts scoring every student enrolled in the latest semester of the data, using whichever model version is currently active per purpose. Students who are no longer enrolled (dropped out) are skipped - their last index stays in the history, but they get no new "current" index or risks.
-- `GET /training/jobs/{job_id}`, `GET /inference/jobs/{job_id}` - poll a job: `status` is `queued` → `running` → `succeeded` / `failed`, with `started_at`, `finished_at`, and either `result` or `error`. A training `result` holds per-model metrics, `promoted` (whether the version became active) and `warning` (why not); an inference `result` holds `processed`.
+- `GET /training/jobs/{job_id}`, `GET /inference/jobs/{job_id}` - poll a job: `status` is `queued` → `running` → `succeeded` / `failed`, with `started_at`, `finished_at`, and either `result` or `error`. A training `result` holds per-model metrics, `promoted` (whether the version became active) and `warning` (why not); an inference `result` holds `processed` and `insights` (see below).
 - `GET /training/jobs/latest`, `GET /inference/jobs/latest` - the most recent job of that type, e.g. so a reloaded page can see a job still running.
 
 Only one job of each type can be active at a time (a partial unique index on `ml_jobs` enforces it, even across processes); a second `POST` gets `409` with the active job in `detail.job`. Training and inference don't block each other - inference keeps using the models that were active when it started. Jobs run in a thread of the ml-service process with their own database sessions; on startup any job still `queued`/`running` (the process died mid-job) is marked `failed`. When RabbitMQ arrives, the same jobs can be started by a queue consumer instead, without changing this API.
-- `GET /student-indexes/{student_id}/latest/full` - a student's latest index, SHAP explanations, raw feature snapshot, risk assessments, and forecasts, all in one response.
-- `GET /student-indexes/{student_id}/history` - index history for a student.
+- `GET /student-indexes/{student_id}/latest`, `.../latest/full` - the student's index from the **latest completed inference run** (full: plus SHAP explanations, raw feature snapshot, risk assessments and forecasts). Every index row carries the `inference_job_id` that produced it, and only a `succeeded` inference job counts: rows of a job still running or one that failed are never served, so a reader never sees a half-written run. A student missing from that run (no longer enrolled) gets `404` instead of a stale index.
+- `GET /student-indexes/{student_id}/history` - the student's index from every succeeded inference run, oldest first.
 - `GET /model-versions/` - all trained model versions and their metrics/active status.
 - `GET /test-import-semester-connection` - connectivity check against `import-service`.
+
+`student_indexes.inference_job_id` is a new non-null column: recreate the ML database after pulling this change.
+
+## Delivery to insights-service
+
+At the end of every inference job ml-service sends the run to insights-service (`POST {INSIGHTS_SERVICE_URL}/insight-runs/`): per student the index, the three risks, the forecasts, the raw features, the group (fetched from import-service's `GET /students/`), and the **full** SHAP vector of every model - not the top 5 stored here, which would change insights' main reason for up to 17% of students (see insights-service's README). The pipelines collect it while scoring (`InsightsPayloadBuilder`), since the full vectors exist only in memory.
+
+- `source_job_id` is the inference job id, so insights-service stores each run once; a retried or re-delivered run returns the stored one.
+- Network errors and 5xx are retried 3 times (2 s, 4 s); a 4xx (the run was rejected) is not.
+- A failed delivery does **not** fail the inference job - the predictions are already stored. The job's `result.insights` says what happened: `{"delivered": true, "insight_run_id": ...}` or `{"delivered": false, "reason": ...}`; re-run inference to deliver again.
+- `INSIGHTS_SERVICE_URL` unset → delivery is skipped (`"reason": "INSIGHTS_SERVICE_URL is not set"`).
+
+The request is ~9 KB per student (12.5 MB for the 1,400-student synthetic run).
 
 ## Tests
 

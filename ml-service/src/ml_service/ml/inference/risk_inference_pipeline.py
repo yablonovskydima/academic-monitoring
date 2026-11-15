@@ -1,5 +1,6 @@
 from ml_service.ml.encoding.feature_encoder import FeatureEncoder
-from ml_service.ml.inference.shap_contributions import make_explainer, top_contributions
+from ml_service.ml.inference.insights_payload import InsightsPayloadBuilder
+from ml_service.ml.inference.shap_contributions import all_contributions, make_explainer, top_contributions
 from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.services.risk_assessment_service import RiskAssessmentService
@@ -57,7 +58,7 @@ class RiskInferencePipeline:
             for purpose, model in self._models.items()
         }
 
-    def process_batch(self, batch, student_indexes) -> None:
+    def process_batch(self, batch, student_indexes, payload: InsightsPayloadBuilder | None = None) -> None:
         self._ensure_loaded()
         if not self._explainers:
             raise ValueError("set_background must be called before process_batch")
@@ -91,6 +92,14 @@ class RiskInferencePipeline:
                     ),
                 ))
                 assessment_sources.append((purpose, idx))
+
+                if payload is not None:
+                    payload.add_risk(
+                        batch[idx].student_id,
+                        RISK_TYPE_BY_PURPOSE[purpose].value,
+                        proba_array[idx],
+                        all_contributions(X_by_purpose[purpose].iloc[idx], shap_values[purpose][idx]),
+                    )
 
         created_assessments = self.risk_assessment_service.bulk_create_many(all_assessments)
 

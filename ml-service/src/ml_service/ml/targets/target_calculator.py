@@ -1,6 +1,7 @@
 import enum
 from collections.abc import Callable
 
+from ml_service.config import ADMISSION_ABSENCE_THRESHOLD, ADMISSION_GRADE_THRESHOLD
 from ml_service.schemas.student_semester_features import StudentSemesterFeatures
 
 
@@ -22,8 +23,8 @@ class TargetCalculator:
     LAB_ATTENDANCE_SHARE = 0.6
     GRADE_STDDEV_PENALTY = 2.0
 
-    CRITICAL_ABSENCE_THRESHOLD = 75.0
-    CRITICAL_GRADE_THRESHOLD = 50.0
+    CRITICAL_ABSENCE_THRESHOLD = ADMISSION_ABSENCE_THRESHOLD
+    CRITICAL_GRADE_THRESHOLD = ADMISSION_GRADE_THRESHOLD
 
     DROPPED_OUT_TARGET = 0.0
     CRITICAL_ABSENCE_CAP = 20.0

@@ -12,6 +12,7 @@ from ml_service.schemas.risk_assessment import RiskAssessmentOut
 class StudentIndexCreate(BaseModel):
     student_id: int
     semester_id: int
+    inference_job_id: int
     model_version_id: int
     index_value: float
     category: IndexCategory
@@ -24,6 +25,7 @@ class StudentIndexOut(BaseModel):
     id: int
     student_id: int
     semester_id: int
+    inference_job_id: int
     model_version_id: int
     index_value: float
     category: IndexCategory

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 INTERRUPTED_ERROR = "Interrupted: ml-service stopped before the job finished"
 
-Runner = Callable[[Session], dict]
+Runner = Callable[[Session, int], dict]
 
 _submit_lock = threading.Lock()
 
@@ -28,7 +28,7 @@ class JobAlreadyActive(Exception):
         self.job = job
 
 
-def run_training(db: Session) -> dict:
+def run_training(db: Session, job_id: int) -> dict:
     results = TrainingService(db).train_all_models()
     return {
         "trained_models": {
@@ -45,8 +45,8 @@ def run_training(db: Session) -> dict:
     }
 
 
-def run_inference(db: Session) -> dict:
-    return {"processed": InferenceService(db).calculate_all_indexes()}
+def run_inference(db: Session, job_id: int) -> dict:
+    return InferenceService(db).calculate_all_indexes(job_id)
 
 
 DEFAULT_RUNNERS: dict[MLJobType, Runner] = {
@@ -126,7 +126,7 @@ class MLJobService:
 
         try:
             with self.session_factory() as db:
-                result = self.runners[job_type](db)
+                result = self.runners[job_type](db, job_id)
         except Exception as e:
             logger.exception("%s job %s failed", job_type.value, job_id)
             self._update(job_id, status=MLJobStatus.failed, finished_at=_utc_now(), error=f"{type(e).__name__}: {e}")

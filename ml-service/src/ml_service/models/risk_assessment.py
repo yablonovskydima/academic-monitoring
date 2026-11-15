@@ -1,10 +1,10 @@
 import enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Float, Enum as SAEnum, BigInteger
+from sqlalchemy import ForeignKey, Float, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ml_service.database import Base
+from ml_service.database import Base, BigIntegerPK
 
 if TYPE_CHECKING:
     from ml_service.models.student_index import StudentIndex
@@ -21,7 +21,7 @@ class RiskType(str, enum.Enum):
 class RiskAssessment(Base):
     __tablename__ = "risk_assessments"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigIntegerPK, primary_key=True, autoincrement=True)
     student_index_id: Mapped[int] = mapped_column(ForeignKey("student_indexes.id"), index=True)
     model_version_id: Mapped[int] = mapped_column(ForeignKey("model_versions.id"), index=True)
     risk_type: Mapped[RiskType] = mapped_column(SAEnum(RiskType, name="risk_type_enum"))

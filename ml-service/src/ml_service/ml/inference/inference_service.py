@@ -3,7 +3,11 @@ import logging
 from sqlalchemy.orm import Session
 
 from ml_service.clients.import_service_client import ImportServiceClient
+from ml_service.clients.insights_service_client import InsightsServiceClient
+from ml_service.config import INSIGHTS_SERVICE_URL
 from ml_service.ml.encoding.feature_encoder import FeatureEncoder
+from ml_service.ml.inference.insights_delivery import deliver_to_insights
+from ml_service.ml.inference.insights_payload import InsightsPayloadBuilder
 from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.ml.inference.index_inference_pipeline import IndexInferencePipeline
 from ml_service.ml.inference.risk_inference_pipeline import RiskInferencePipeline
@@ -30,6 +34,7 @@ def current_semester_rows(semester_features: list) -> list:
 class InferenceService:
     def __init__(self, db: Session):
         self.import_client = ImportServiceClient()
+        self.insights_client = InsightsServiceClient() if INSIGHTS_SERVICE_URL else None
         feature_encoder = FeatureEncoder()
         model_persistence = ModelPersistence()
         model_version_service = ModelVersionService(db)
@@ -47,7 +52,7 @@ class InferenceService:
             IndexForecastService(db),
         )
 
-    def calculate_all_indexes(self) -> int:
+    def calculate_all_indexes(self, inference_job_id: int) -> dict:
         semester_features = self.import_client.get_semester_features()
         if not semester_features:
             raise ValueError("No semester features received from import-service")
@@ -63,19 +68,21 @@ class InferenceService:
         self.index_pipeline.set_background(background)
         self.risk_pipeline.set_background(background)
 
+        payload = InsightsPayloadBuilder()
         processed_count = 0
 
         for i in range(0, len(all_features), BATCH_SIZE):
             batch = all_features[i:i + BATCH_SIZE]
 
-            student_indexes = self.index_pipeline.process_batch(batch)
+            student_indexes = self.index_pipeline.process_batch(batch, inference_job_id, payload)
 
-            self.risk_pipeline.process_batch(batch, student_indexes)
+            self.risk_pipeline.process_batch(batch, student_indexes, payload)
 
-            self.forecast_pipeline.process_batch(batch, student_indexes)
+            self.forecast_pipeline.process_batch(batch, student_indexes, payload)
 
             processed_count += len(batch)
 
             logger.info("Processed %s/%s students", processed_count, len(all_features))
 
-        return processed_count
+        insights = deliver_to_insights(payload, inference_job_id, self.import_client, self.insights_client)
+        return {"processed": processed_count, "insights": insights}

@@ -29,8 +29,8 @@ def make_service(session_factory, training=None, inference=None, start=run_now):
     return MLJobService(
         session_factory=session_factory,
         runners={
-            MLJobType.training: training or (lambda db: {"trained_models": {}}),
-            MLJobType.inference: inference or (lambda db: {"processed": 3}),
+            MLJobType.training: training or (lambda db, job_id: {"trained_models": {}}),
+            MLJobType.inference: inference or (lambda db, job_id: {"processed": 3}),
         },
         start=start,
     )
@@ -51,7 +51,7 @@ def test_submit_returns_a_queued_job_and_the_job_then_succeeds(session_factory):
 
 
 def test_a_failing_runner_marks_the_job_failed_with_the_reason(session_factory):
-    def broken(db):
+    def broken(db, job_id):
         raise ValueError("No active index_regression model found. Train a model first.")
 
     service = make_service(session_factory, inference=broken)
@@ -134,7 +134,7 @@ def test_job_runs_in_the_background_and_is_visible_as_running(session_factory):
     release = threading.Event()
     started = threading.Event()
 
-    def slow(db):
+    def slow(db, job_id):
         started.set()
         release.wait(5)
         return {"trained_models": {"index_regression": {}}}

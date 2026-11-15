@@ -20,6 +20,13 @@ def make_explainer(model, background: pd.DataFrame) -> shap.TreeExplainer:
     )
 
 
+def all_contributions(feature_row: pd.Series, shap_row) -> list[dict]:
+    return [
+        {"feature_name": name, "feature_value": float(value), "shap_value": float(shap_value)}
+        for name, value, shap_value in zip(feature_row.index.tolist(), feature_row.values.tolist(), shap_row)
+    ]
+
+
 def top_contributions(feature_row: pd.Series, shap_row, top_n: int = TOP_N_CONTRIBUTIONS) -> list[dict]:
     contributions = list(zip(feature_row.index.tolist(), feature_row.values.tolist(), shap_row))
     contributions.sort(key=lambda item: abs(item[2]), reverse=True)

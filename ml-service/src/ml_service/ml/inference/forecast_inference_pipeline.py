@@ -1,4 +1,5 @@
 from ml_service.ml.encoding.feature_encoder import FeatureEncoder
+from ml_service.ml.inference.insights_payload import InsightsPayloadBuilder
 from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.services.index_forecast_service import IndexForecastService
@@ -42,7 +43,7 @@ class ForecastInferencePipeline:
 
         self._loaded = True
 
-    def process_batch(self, batch, student_indexes) -> None:
+    def process_batch(self, batch, student_indexes, payload: InsightsPayloadBuilder | None = None) -> None:
         self._ensure_loaded()
 
         if not self._models:
@@ -67,5 +68,7 @@ class ForecastInferencePipeline:
                         model_version_id=self._versions[purpose].id,
                     ),
                 ))
+                if payload is not None:
+                    payload.add_forecast(batch[idx].student_id, FORECAST_HORIZONS[purpose], pred_array[idx])
 
         self.forecast_service.bulk_create_many(all_forecasts)

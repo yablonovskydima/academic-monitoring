@@ -1,7 +1,8 @@
 from datetime import datetime
 
 from ml_service.ml.encoding.feature_encoder import FeatureEncoder
-from ml_service.ml.inference.shap_contributions import make_explainer, top_contributions
+from ml_service.ml.inference.insights_payload import InsightsPayloadBuilder
+from ml_service.ml.inference.shap_contributions import all_contributions, make_explainer, top_contributions
 from ml_service.ml.persistence.model_persistence import ModelPersistence
 from ml_service.services.model_version_service import ModelVersionService
 from ml_service.services.student_index_service import StudentIndexService
@@ -53,7 +54,9 @@ class IndexInferencePipeline:
         background = self.feature_encoder.encode(background_rows, purpose=ModelPurpose.index_regression)
         self._explainer = make_explainer(self._model, background)
 
-    def process_batch(self, batch) -> list[StudentIndex]:
+    def process_batch(
+        self, batch, inference_job_id: int, payload: InsightsPayloadBuilder | None = None,
+    ) -> list[StudentIndex]:
         self._ensure_loaded()
         if self._explainer is None:
             raise ValueError("set_background must be called before process_batch")
@@ -70,6 +73,7 @@ class IndexInferencePipeline:
             index_data_list.append(StudentIndexCreate(
                 student_id=features.student_id,
                 semester_id=features.semester_id,
+                inference_job_id=inference_job_id,
                 model_version_id=self._active_version.id,
                 index_value=index_value,
                 category=category,
@@ -89,6 +93,9 @@ class IndexInferencePipeline:
                 student_index.id,
                 FeatureSnapshotCreate(raw_features=features.model_dump()),
             ))
+
+            if payload is not None:
+                payload.add_index(features, student_index, all_contributions(X_encoded.iloc[idx], shap_values[idx]))
 
         self.explanation_service.bulk_create_many(all_explanations)
         self.snapshot_service.bulk_create_many(all_snapshots)

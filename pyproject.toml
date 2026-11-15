@@ -21,6 +21,7 @@ members = [
     "ml-service",
     "auth-service",
     "auth-shared",
+    "insights-service",
 ]
 
 [dependency-groups]

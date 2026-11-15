@@ -1,8 +1,19 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from ml_service.models.ml_job import MLJob, MLJobStatus, MLJobType
 from ml_service.models.risk_assessment import RiskAssessment
 from ml_service.models.student_index import StudentIndex
+
+
+def _latest_succeeded_inference_job_id():
+    return (
+        select(MLJob.id)
+        .where(MLJob.job_type == MLJobType.inference, MLJob.status == MLJobStatus.succeeded)
+        .order_by(MLJob.finished_at.desc(), MLJob.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
 
 
 class StudentIndexRepository:
@@ -14,14 +25,15 @@ class StudentIndexRepository:
             select(StudentIndex).where(StudentIndex.id == index_id)
         ).first()
 
-    def get_latest_by_student(self, student_id: int) -> StudentIndex | None:
+    def get_current_by_student(self, student_id: int) -> StudentIndex | None:
         return self.session.scalars(
-            select(StudentIndex)
-            .where(StudentIndex.student_id == student_id)
-            .order_by(StudentIndex.calculated_at.desc())
+            select(StudentIndex).where(
+                StudentIndex.student_id == student_id,
+                StudentIndex.inference_job_id == _latest_succeeded_inference_job_id(),
+            )
         ).first()
 
-    def get_latest_by_student_full(self, student_id: int) -> StudentIndex | None:
+    def get_current_by_student_full(self, student_id: int) -> StudentIndex | None:
         return self.session.scalars(
             select(StudentIndex)
             .options(
@@ -30,14 +42,17 @@ class StudentIndexRepository:
                 selectinload(StudentIndex.risk_assessments).selectinload(RiskAssessment.explanations),
                 selectinload(StudentIndex.forecasts),
             )
-            .where(StudentIndex.student_id == student_id)
-            .order_by(StudentIndex.calculated_at.desc())
+            .where(
+                StudentIndex.student_id == student_id,
+                StudentIndex.inference_job_id == _latest_succeeded_inference_job_id(),
+            )
         ).first()
 
     def get_history_by_student(self, student_id: int) -> list[StudentIndex]:
         return list(self.session.scalars(
             select(StudentIndex)
-            .where(StudentIndex.student_id == student_id)
+            .join(MLJob, MLJob.id == StudentIndex.inference_job_id)
+            .where(StudentIndex.student_id == student_id, MLJob.status == MLJobStatus.succeeded)
             .order_by(StudentIndex.calculated_at)
         ).all())
 

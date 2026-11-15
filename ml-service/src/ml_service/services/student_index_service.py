@@ -12,11 +12,11 @@ class StudentIndexService:
     def get_by_id(self, index_id: int) -> StudentIndex | None:
         return self.repo.get_by_id(index_id)
 
-    def get_latest_for_student(self, student_id: int) -> StudentIndex | None:
-        return self.repo.get_latest_by_student(student_id)
+    def get_current_for_student(self, student_id: int) -> StudentIndex | None:
+        return self.repo.get_current_by_student(student_id)
 
-    def get_latest_for_student_full(self, student_id: int) -> StudentIndex | None:
-        return self.repo.get_latest_by_student_full(student_id)
+    def get_current_for_student_full(self, student_id: int) -> StudentIndex | None:
+        return self.repo.get_current_by_student_full(student_id)
 
     def get_history_for_student(self, student_id: int) -> list[StudentIndex]:
         return self.repo.get_history_by_student(student_id)

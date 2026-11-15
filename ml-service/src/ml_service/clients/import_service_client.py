@@ -34,6 +34,11 @@ class ImportServiceClient:
 
         return all_features
 
+    def get_student_groups(self) -> dict[int, int]:
+        response = httpx.get(f"{self.base_url}/students/", timeout=60.0)
+        response.raise_for_status()
+        return {student["id"]: student["group_id"] for student in response.json()}
+
     def get_semesters(self) -> list[dict]:
         response = httpx.get(
             f"{self.base_url}/semesters/",

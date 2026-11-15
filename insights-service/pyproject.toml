@@ -1,0 +1,24 @@
+[project]
+name = "insights-service"
+version = "0.1.0"
+description = "Turns ml-service predictions into plain-language insights for curators"
+readme = "README.md"
+authors = [
+    { email = "yablonovskydmutro1@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "psycopg2-binary>=2.9.12",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "sqlalchemy>=2.0.52",
+    "uvicorn[standard]>=0.52.3",
+]
+
+[project.scripts]
+insights-service = "insights_service.main:run"
+
+[build-system]
+requires = ["uv_build>=0.11.26,<0.12.0"]
+build-backend = "uv_build"
